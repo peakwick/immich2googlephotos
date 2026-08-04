@@ -11,6 +11,7 @@ import {
   FileImage,
   Folder,
   RotateCcw,
+  ArrowLeft,
 } from 'lucide-react';
 import axios from 'axios';
 import { MigrationProgress } from '../types';
@@ -22,6 +23,7 @@ interface MigrationDashboardProps {
   onResume: () => void;
   onCancel: () => void;
   disabled: boolean;
+  onBackStep?: () => void;
 }
 
 export const MigrationDashboard: React.FC<MigrationDashboardProps> = ({
@@ -31,6 +33,7 @@ export const MigrationDashboard: React.FC<MigrationDashboardProps> = ({
   onResume,
   onCancel,
   disabled,
+  onBackStep,
 }) => {
   const isRunning = progress.status === 'RUNNING';
   const isPaused = progress.status === 'PAUSED';
@@ -254,6 +257,17 @@ export const MigrationDashboard: React.FC<MigrationDashboardProps> = ({
       <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
         {isIdle && (
           <>
+            {onBackStep && (
+              <button
+                onClick={onBackStep}
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '14px' }}
+              >
+                <ArrowLeft size={18} />
+                <span>Back to Setup</span>
+              </button>
+            )}
+
             <button
               onClick={onStart}
               className="btn btn-primary"
@@ -275,10 +289,10 @@ export const MigrationDashboard: React.FC<MigrationDashboardProps> = ({
                 background: 'rgba(244, 63, 94, 0.08)'
               }}
               disabled={disabled}
-              title="Daha önce aktarılan dosya kayıtlarını siler"
+              title="Clears local migration history records"
             >
               <RotateCcw size={18} />
-              <span>Reset DB (Sıfırla)</span>
+              <span>Reset DB</span>
             </button>
           </>
         )}

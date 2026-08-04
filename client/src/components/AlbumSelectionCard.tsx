@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FolderHeart, CheckSquare, Square, Search, Layers, RefreshCw, Image, Sparkles, Filter } from 'lucide-react';
+import { FolderHeart, CheckSquare, Square, Search, Layers, RefreshCw, Image, Sparkles, Filter, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import { ImmichAlbum, ImmichAsset, MigrationMode } from '../types';
 
@@ -13,11 +13,13 @@ interface AlbumSelectionCardProps {
     maxConcurrency?: number
   ) => void;
   disabled: boolean;
+  onNextStep?: () => void;
 }
 
 export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   onSelectionChange,
   disabled,
+  onNextStep,
 }) => {
   const [albums, setAlbums] = useState<ImmichAlbum[]>([]);
   const [assets, setAssets] = useState<ImmichAsset[]>([]);
@@ -560,6 +562,20 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
       {error && (
         <div style={{ color: '#f87171', fontSize: '0.85rem', marginTop: '10px' }}>
           {error}
+        </div>
+      )}
+
+      {onNextStep && (
+        <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onNextStep}
+            className="btn btn-primary"
+            style={{ padding: '14px 28px' }}
+          >
+            <span>Proceed to Migration Engine (Step 4)</span>
+            <ArrowRight size={18} />
+          </button>
         </div>
       )}
     </div>

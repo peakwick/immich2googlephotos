@@ -7,6 +7,7 @@ import { AlbumSelectionCard } from './components/AlbumSelectionCard';
 import { MigrationDashboard } from './components/MigrationDashboard';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { MigrationSummaryModal } from './components/MigrationSummaryModal';
+import { Check, Server, Cloud, Sliders, Play } from 'lucide-react';
 import {
   ImmichServerInfo,
   GoogleProfile,
@@ -18,6 +19,8 @@ import {
 export const App: React.FC = () => {
   const [immichInfo, setImmichInfo] = useState<ImmichServerInfo | null>(null);
   const [googleProfile, setGoogleProfile] = useState<GoogleProfile | null>(null);
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4>(1);
+
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
 
@@ -27,7 +30,7 @@ export const App: React.FC = () => {
     selectedAssetIds: [],
     maxItemsLimit: 5,
     createAlbums: true,
-    maxConcurrency: 3,
+    maxConcurrency: 5,
   });
 
   const [progress, setProgress] = useState<MigrationProgress>({
@@ -44,16 +47,17 @@ export const App: React.FC = () => {
   });
 
   useEffect(() => {
-    // Connect to SSE event stream for real-time migration progress
     const eventSource = new EventSource('/api/migration/stream');
 
     eventSource.onmessage = (event) => {
       try {
         const data: MigrationProgress = JSON.parse(event.data);
         setProgress((prev) => {
-          // Open celebration modal if job just completed
           if (prev.status === 'RUNNING' && data.status === 'COMPLETED') {
             setIsSummaryOpen(true);
+          }
+          if (data.status === 'RUNNING' || data.status === 'PAUSED') {
+            setActiveStep(4); // Jump to live dashboard when running
           }
           return data;
         });
@@ -62,17 +66,28 @@ export const App: React.FC = () => {
       }
     };
 
-    eventSource.onerror = () => {
-      // EventSource automatically retries connection
-    };
-
     return () => {
       eventSource.close();
     };
   }, []);
 
+  const handleImmichConnected = (info: ImmichServerInfo) => {
+    setImmichInfo(info);
+    if (activeStep === 1) {
+      setActiveStep(2);
+    }
+  };
+
+  const handleGoogleConnected = (profile: GoogleProfile) => {
+    setGoogleProfile(profile);
+    if (activeStep === 2) {
+      setActiveStep(3);
+    }
+  };
+
   const handleStartMigration = async () => {
     try {
+      setActiveStep(4);
       await axios.post('/api/migration/start', migrationOptions);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to start migration job.');
@@ -122,34 +137,78 @@ export const App: React.FC = () => {
 
       <main className="main-content">
         {/* Intro banner */}
-        <div style={{
-          textAlign: 'center',
-          maxWidth: '820px',
-          margin: '0 auto 36px',
-        }}>
-          <h2 style={{ fontSize: '2.4rem', marginBottom: '12px' }}>
+        <div style={{ textAlign: 'center', maxWidth: '800px', margin: '0 auto 28px' }}>
+          <h2 style={{ fontSize: '2.2rem', marginBottom: '10px' }}>
             Migrate Your Memories with <span className="gradient-text">Zero Loss</span>
           </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: 1.6 }}>
-            Seamlessly transfer high-resolution photos, videos, and albums from your self-hosted Immich instance to Google Photos without re-encoding, compression, or complex GCP setup.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.5 }}>
+            Seamlessly transfer high-resolution photos, videos, and albums from your self-hosted Immich instance to Google Photos without re-encoding, compression, or GCP friction.
           </p>
         </div>
 
-        {/* Step 1 & Step 2 Grid */}
-        <div className="step-grid">
-          <ImmichConnectCard
-            onConnected={(info) => setImmichInfo(info)}
-            currentInfo={immichInfo}
-          />
+        {/* Stepper Navigation Bar */}
+        <div className="stepper-nav">
+          <button
+            type="button"
+            className={`stepper-item ${activeStep === 1 ? 'active' : ''} ${immichInfo ? 'completed' : ''}`}
+            onClick={() => setActiveStep(1)}
+          >
+            <div className="stepper-num">{immichInfo ? <Check size={14} /> : '1'}</div>
+            <Server size={16} />
+            <span>1. Immich</span>
+          </button>
 
-          <GoogleConnectCard
-            onConnected={(profile) => setGoogleProfile(profile)}
-            currentProfile={googleProfile}
-          />
+          <button
+            type="button"
+            className={`stepper-item ${activeStep === 2 ? 'active' : ''} ${googleProfile ? 'completed' : ''}`}
+            onClick={() => setActiveStep(2)}
+          >
+            <div className="stepper-num">{googleProfile ? <Check size={14} /> : '2'}</div>
+            <Cloud size={16} />
+            <span>2. Google Photos</span>
+          </button>
+
+          <button
+            type="button"
+            className={`stepper-item ${activeStep === 3 ? 'active' : ''}`}
+            onClick={() => setActiveStep(3)}
+          >
+            <div className="stepper-num">3</div>
+            <Sliders size={16} />
+            <span>3. Setup & Speed</span>
+          </button>
+
+          <button
+            type="button"
+            className={`stepper-item ${activeStep === 4 ? 'active' : ''}`}
+            onClick={() => setActiveStep(4)}
+          >
+            <div className="stepper-num">4</div>
+            <Play size={16} />
+            <span>4. Migration Engine</span>
+          </button>
         </div>
 
-        {/* Step 3: Album Selection */}
-        <div style={{ marginBottom: '32px' }}>
+        {/* Step 1: Immich Connection */}
+        {activeStep === 1 && (
+          <ImmichConnectCard
+            onConnected={handleImmichConnected}
+            currentInfo={immichInfo}
+            onNextStep={() => setActiveStep(2)}
+          />
+        )}
+
+        {/* Step 2: Google Photos Authorization */}
+        {activeStep === 2 && (
+          <GoogleConnectCard
+            onConnected={handleGoogleConnected}
+            currentProfile={googleProfile}
+            onNextStep={() => setActiveStep(3)}
+          />
+        )}
+
+        {/* Step 3: Migration Mode & Speed Setup */}
+        {activeStep === 3 && (
           <AlbumSelectionCard
             disabled={!immichInfo}
             onSelectionChange={(
@@ -170,18 +229,22 @@ export const App: React.FC = () => {
                 maxConcurrency: maxConcurrency ?? prev.maxConcurrency ?? 5,
               }));
             }}
+            onNextStep={() => setActiveStep(4)}
           />
-        </div>
+        )}
 
-        {/* Step 4: Migration Dashboard & Stream */}
-        <MigrationDashboard
-          progress={progress}
-          onStart={handleStartMigration}
-          onPause={handlePauseMigration}
-          onResume={handleResumeMigration}
-          onCancel={handleCancelMigration}
-          disabled={!isMigrateReady}
-        />
+        {/* Step 4: Live Migration Engine */}
+        {activeStep === 4 && (
+          <MigrationDashboard
+            progress={progress}
+            onStart={handleStartMigration}
+            onPause={handlePauseMigration}
+            onResume={handleResumeMigration}
+            onCancel={handleCancelMigration}
+            disabled={!isMigrateReady}
+            onBackStep={() => setActiveStep(3)}
+          />
+        )}
       </main>
 
       {/* Footer */}
@@ -192,10 +255,10 @@ export const App: React.FC = () => {
         color: 'var(--text-muted)',
         fontSize: '0.82rem',
       }}>
-        Immich → Google Photos Full-Stack Migration App • Built with Node.js, Express, React, Vite & TypeScript
+        Immich → Google Photos Migration Engine • Node.js, Express, React, Vite & TypeScript
       </footer>
 
-      {/* Activity Logs Modal */}
+      {/* Activity Logs Drawer Modal */}
       <ActivityLogModal
         isOpen={isLogsOpen}
         onClose={() => setIsLogsOpen(false)}
