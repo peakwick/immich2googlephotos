@@ -173,7 +173,7 @@ export class ImmichService {
       originalFileName: raw.originalFileName || raw.originalName || raw.id + '.jpg',
       originalPath: raw.originalPath || '',
       type: raw.type === 'VIDEO' ? 'VIDEO' : 'IMAGE',
-      fileCreatedAt: raw.fileCreatedAt || raw.createdAt || new Date().toISOString(),
+      fileCreatedAt: raw.fileCreatedAt || raw.localDateTime || raw.exifInfo?.dateTimeOriginal || raw.createdAt || new Date().toISOString(),
       fileModifiedAt: raw.fileModifiedAt || raw.updatedAt || new Date().toISOString(),
       exifInfo: raw.exifInfo,
       albumId,
