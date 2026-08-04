@@ -121,19 +121,19 @@ export const ImmichConnectCard: React.FC<ImmichConnectCardProps> = ({
             lineHeight: '1.45'
           }}>
             <strong style={{ color: '#22d3ee', display: 'block', marginBottom: '6px' }}>
-              🔑 Immich API Anahtarı Nasıl Oluşturulur?
+              🔑 How to Generate an Immich API Key
             </strong>
             <ol style={{ paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <li>Immich Web Arayüzünde profilinize tıklayıp <strong>Account Settings (Hesap Ayarları)</strong> sayfasını açın.</li>
-              <li><strong>API Keys</strong> sekmesine girip <strong>"New API Key"</strong> (Yeni API Anahtarı) butonuna basın.</li>
+              <li>In the Immich Web UI, click your avatar and open <strong>Account Settings</strong>.</li>
+              <li>Navigate to the <strong>API Keys</strong> section and click <strong>"New API Key"</strong>.</li>
               <li>
-                <strong>Gerekli Minimum İzinler (Permissions):</strong>
+                <strong>Minimum Required Permissions:</strong>
                 <ul style={{ paddingLeft: '16px', marginTop: '3px', marginBottom: '3px', color: '#94a3b8' }}>
-                  <li><code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '4px', color: '#38bdf8' }}>Asset: Read</code> — Yüksek çözünürlüklü kaynak medya dosyalarını ve EXIF metadata'yı çekmek için</li>
-                  <li><code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '4px', color: '#38bdf8' }}>Album: Read</code> — Immich albümlerini ve içeriklerini eşleme için listelemek için</li>
+                  <li><code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '4px', color: '#38bdf8' }}>Asset: Read</code> — To stream original resolution media and EXIF metadata</li>
+                  <li><code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '4px', color: '#38bdf8' }}>Album: Read</code> — To list albums for Google Photos structure replication</li>
                 </ul>
               </li>
-              <li>Oluşturulan API anahtarını kopyalayıp yukarıdaki alana yapıştırın.</li>
+              <li>Copy the generated API key and paste it into the input field above.</li>
             </ol>
           </div>
         </div>

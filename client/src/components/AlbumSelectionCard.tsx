@@ -154,9 +154,9 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
             <FolderHeart size={20} />
           </div>
           <div>
-            <h3 style={{ fontSize: '1.2rem' }}>3. İçerik ve Aktarım Modunu Seçin</h3>
+            <h3 style={{ fontSize: '1.2rem' }}>3. Select Migration Mode & Content</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Test için yalnızca birkaç fotoğraf, seçili albümler veya hızlı test modu seçebilirsiniz
+              Choose a quick test batch, specific albums, individual photos, or your entire library
             </p>
           </div>
         </div>
@@ -165,7 +165,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
           className="btn btn-secondary"
           style={{ padding: '8px 12px' }}
           disabled={loading || disabled}
-          title="Yenile"
+          title="Refresh"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -194,10 +194,10 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
           }}
         >
           <div style={{ fontWeight: 700, fontSize: '0.88rem', color: mode === 'TEST_BATCH' ? '#34d399' : '#fff', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Sparkles size={14} /> Hızlı Test (ÖNERİLEN)
+            <Sparkles size={14} /> Quick Test (RECOMMENDED)
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            Sadece ilk {testLimit} adeti test et
+            Migrate first {testLimit} items only
           </div>
         </button>
 
@@ -216,9 +216,9 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
             transition: 'all 0.2s',
           }}
         >
-          <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '4px' }}>Tek Tek Fotoğraf Seç</div>
+          <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '4px' }}>Asset Picker</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            Seçtiğin {selectedAssetIds.length} dosyayı aktar
+            Selected {selectedAssetIds.length} items
           </div>
         </button>
 
@@ -237,9 +237,9 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
             transition: 'all 0.2s',
           }}
         >
-          <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '4px' }}>Belirli Albümler</div>
+          <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '4px' }}>Album Picker</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            Seçtiğin {selectedAlbumIds.length} albümü aktar
+            Selected {selectedAlbumIds.length} albums
           </div>
         </button>
 
@@ -258,9 +258,9 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
             transition: 'all 0.2s',
           }}
         >
-          <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '4px' }}>Tüm Kitaplık</div>
+          <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '4px' }}>Full Library</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            Toplam {libraryCount} dosya
+            Total {libraryCount} items
           </div>
         </button>
       </div>
@@ -278,7 +278,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
       }}>
         <div>
           <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '6px', color: '#38bdf8' }}>
-            ⚡️ Paralel Yükleme Hızı (Thread Sayısı)
+            ⚡️ Parallel Upload Speed (Worker Threads)
           </label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <select
@@ -292,11 +292,11 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
               style={{ padding: '6px 12px', fontSize: '0.85rem' }}
               disabled={disabled}
             >
-              <option value={1}>1 Thread (Sıralı / Yavaş)</option>
-              <option value={3}>3 Thread (Dengeli)</option>
-              <option value={5}>5 Thread (Hızlı - Varsayılan ⭐)</option>
-              <option value={8}>8 Thread (Çok Hızlı 🚀)</option>
-              <option value={10}>10 Thread (Maksimum Performans 🔥)</option>
+              <option value={1}>1 Thread (Sequential / Slow)</option>
+              <option value={3}>3 Threads (Balanced)</option>
+              <option value={5}>5 Threads (Fast - Default ⭐)</option>
+              <option value={8}>8 Threads (Very Fast 🚀)</option>
+              <option value={10}>10 Threads (Maximum Performance 🔥)</option>
             </select>
           </div>
         </div>
@@ -315,9 +315,9 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
             disabled={disabled}
           />
           <label htmlFor="createAlbumsCheck" style={{ fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none' }}>
-            <strong>Google Photos Albümlerini Birebir Oluştur</strong>
+            <strong>Replicate Immich Albums to Google Photos</strong>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Immich albüm yapısını Google Photos hesabınızda aynen kopyalar
+              Automatically maps and creates matching Google Photos Albums
             </div>
           </label>
         </div>
@@ -333,14 +333,14 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
           marginBottom: '16px',
         }}>
           <h4 style={{ fontSize: '1rem', color: '#34d399', marginBottom: '8px' }}>
-            Hızlı Test Aktarımı (Güvenli Mod)
+            Quick Test Batch (Safe Mode)
           </h4>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Büyük kütüphanelerde tüm sistemi test etmek için kitaplığınızın en başından sadece belirlediğiniz sayıda dosyayı aktarır.
+            Migrates only a small number of assets from your library to verify credentials and upload speed safely.
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <label style={{ fontSize: '0.9rem', fontWeight: 600 }}>Kaç adet dosya test edilsin?</label>
+            <label style={{ fontSize: '0.9rem', fontWeight: 600 }}>How many items to test?</label>
             <select
               className="form-input"
               style={{ width: '120px' }}
@@ -351,12 +351,12 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                 notifyChange(mode, selectedAlbumIds, selectedAssetIds, val);
               }}
             >
-              <option value="1">1 Dosya</option>
-              <option value="3">3 Dosya</option>
-              <option value="5">5 Dosya</option>
-              <option value="10">10 Dosya</option>
-              <option value="25">25 Dosya</option>
-              <option value="50">50 Dosya</option>
+              <option value="1">1 Item</option>
+              <option value="3">3 Items</option>
+              <option value="5">5 Items</option>
+              <option value="10">10 Items</option>
+              <option value="25">25 Items</option>
+              <option value="50">50 Items</option>
             </select>
           </div>
         </div>
@@ -373,7 +373,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                 className="btn btn-secondary"
                 style={{ padding: '6px 12px', fontSize: '0.78rem' }}
               >
-                <CheckSquare size={14} /> Tümünü Seç
+                <CheckSquare size={14} /> Select All
               </button>
               <button
                 type="button"
@@ -381,7 +381,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                 className="btn btn-secondary"
                 style={{ padding: '6px 12px', fontSize: '0.78rem' }}
               >
-                <Square size={14} /> Temizle
+                <Square size={14} /> Deselect All
               </button>
             </div>
 
@@ -391,7 +391,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                 type="text"
                 className="form-input"
                 style={{ paddingLeft: '34px', paddingRight: '12px', height: '36px', fontSize: '0.85rem' }}
-                placeholder="Dosya ara..."
+                placeholder="Search assets..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -408,11 +408,11 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
           }}>
             {loading ? (
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                Fotoğraflar yükleniyor...
+                Loading photos...
               </div>
             ) : filteredAssets.length === 0 ? (
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                Gösterilecek fotoğraf bulunamadı.
+                No photos found.
               </div>
             ) : (
               filteredAssets.map((asset) => {
@@ -463,31 +463,6 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
       {/* Mode 3: Selected Albums */}
       {mode === 'SELECTED_ALBUMS' && (
         <div>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            background: 'rgba(255,255,255,0.03)',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            marginBottom: '16px',
-            border: '1px solid var(--border-subtle)',
-          }}>
-            <input
-              type="checkbox"
-              id="createAlbumsCheckbox"
-              checked={createAlbums}
-              onChange={(e) => {
-                setCreateAlbums(e.target.checked);
-                notifyChange(mode, selectedAlbumIds, selectedAssetIds, testLimit, e.target.checked);
-              }}
-              style={{ width: '18px', height: '18px', accentColor: '#06b6d4', cursor: 'pointer' }}
-            />
-            <label htmlFor="createAlbumsCheckbox" style={{ fontSize: '0.9rem', cursor: 'pointer', userSelect: 'none' }}>
-              <strong>Google Photos üzerinde aynı isimle albüm oluştur</strong>
-            </label>
-          </div>
-
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
@@ -496,7 +471,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                 className="btn btn-secondary"
                 style={{ padding: '6px 12px', fontSize: '0.78rem' }}
               >
-                <CheckSquare size={14} /> Tümünü Seç
+                <CheckSquare size={14} /> Select All
               </button>
               <button
                 type="button"
@@ -504,7 +479,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                 className="btn btn-secondary"
                 style={{ padding: '6px 12px', fontSize: '0.78rem' }}
               >
-                <Square size={14} /> Temizle
+                <Square size={14} /> Deselect All
               </button>
             </div>
 
@@ -514,7 +489,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                 type="text"
                 className="form-input"
                 style={{ paddingLeft: '34px', paddingRight: '12px', height: '36px', fontSize: '0.85rem' }}
-                placeholder="Albüm ara..."
+                placeholder="Search albums..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -531,11 +506,11 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
           }}>
             {loading ? (
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                Immich albümleri yükleniyor...
+                Loading albums...
               </div>
             ) : filteredAlbums.length === 0 ? (
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                Albüm bulunamadı.
+                No albums found.
               </div>
             ) : (
               filteredAlbums.map((album) => {

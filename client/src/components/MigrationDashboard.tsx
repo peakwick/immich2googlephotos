@@ -37,12 +37,12 @@ export const MigrationDashboard: React.FC<MigrationDashboardProps> = ({
   const isIdle = progress.status === 'IDLE' || progress.status === 'COMPLETED' || progress.status === 'CANCELLED' || progress.status === 'ERROR';
 
   const handleResetHistory = async () => {
-    if (window.confirm('Aktarım veritabanını sıfırlamak istediğinize emin misiniz? Daha önce yüklenen fotoğrafların geçmiş kayıtları silinecek ve tüm fotoğraflar tekrar aktarılabilir duruma gelecektir.')) {
+    if (window.confirm('Are you sure you want to reset the migration database? This will clear local upload history so all assets can be re-migrated.')) {
       try {
         await axios.delete('/api/history');
-        alert('Aktarım veritabanı başarıyla sıfırlandı! Artık tüm fotoğrafları sıfırdan aktarabilirsiniz.');
+        alert('Migration database cleared successfully! All photos are ready for re-migration.');
       } catch (err: any) {
-        alert('Veritabanı sıfırlanırken hata oluştu: ' + (err.message || 'Bilinmeyen hata'));
+        alert('Failed to reset migration history: ' + (err.message || 'Unknown error'));
       }
     }
   };
