@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  immich2googlephotos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: immich2googlephotos
+    restart: unless-stopped
+    ports:
+      - "3383:3383"
+    volumes:
+      - ./data:/app/server/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3383

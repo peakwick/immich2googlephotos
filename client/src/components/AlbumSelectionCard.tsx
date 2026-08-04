@@ -1,0 +1,530 @@
+import React, { useState, useEffect } from 'react';
+import { FolderHeart, CheckSquare, Square, Search, Layers, RefreshCw, Image, Sparkles, Filter } from 'lucide-react';
+import axios from 'axios';
+import { ImmichAlbum, ImmichAsset, MigrationMode } from '../types';
+
+interface AlbumSelectionCardProps {
+  onSelectionChange: (
+    mode: MigrationMode,
+    selectedAlbumIds: string[],
+    createAlbums: boolean,
+    selectedAssetIds?: string[],
+    maxItemsLimit?: number
+  ) => void;
+  disabled: boolean;
+}
+
+export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
+  onSelectionChange,
+  disabled,
+}) => {
+  const [albums, setAlbums] = useState<ImmichAlbum[]>([]);
+  const [assets, setAssets] = useState<ImmichAsset[]>([]);
+  const [libraryCount, setLibraryCount] = useState<number>(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [mode, setMode] = useState<MigrationMode>('TEST_BATCH'); // Default to safe Test Batch!
+  const [selectedAlbumIds, setSelectedAlbumIds] = useState<string[]>([]);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  const [testLimit, setTestLimit] = useState<number>(5);
+  const [createAlbums, setCreateAlbums] = useState(true);
+
+  useEffect(() => {
+    if (!disabled) {
+      loadAlbumsAndAssets();
+    }
+  }, [disabled]);
+
+  const loadAlbumsAndAssets = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [albumsRes, assetsRes] = await Promise.all([
+        axios.get('/api/immich/albums'),
+        axios.get('/api/immich/assets'),
+      ]);
+
+      if (albumsRes.data?.success) {
+        setAlbums(albumsRes.data.albums);
+      }
+
+      if (assetsRes.data?.success) {
+        setLibraryCount(assetsRes.data.count || 0);
+        setAssets(assetsRes.data.assets || []);
+      }
+
+      // Notify parent of safe initial state
+      onSelectionChange('TEST_BATCH', [], createAlbums, [], 5);
+    } catch (err: any) {
+      setError('Immich içerikleri yüklenirken hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const notifyChange = (
+    newMode: MigrationMode,
+    albumIds: string[],
+    assetIds: string[],
+    limit?: number,
+    createAlb?: boolean
+  ) => {
+    const effectiveLimit = newMode === 'TEST_BATCH' ? (limit ?? testLimit) : undefined;
+    onSelectionChange(
+      newMode,
+      albumIds,
+      createAlb ?? createAlbums,
+      assetIds,
+      effectiveLimit
+    );
+  };
+
+  const handleModeChange = (newMode: MigrationMode) => {
+    setMode(newMode);
+    notifyChange(newMode, selectedAlbumIds, selectedAssetIds, testLimit);
+  };
+
+  const handleToggleAlbum = (id: string) => {
+    const updated = selectedAlbumIds.includes(id)
+      ? selectedAlbumIds.filter((item) => item !== id)
+      : [...selectedAlbumIds, id];
+    setSelectedAlbumIds(updated);
+    notifyChange(mode, updated, selectedAssetIds);
+  };
+
+  const handleToggleAsset = (id: string) => {
+    const updated = selectedAssetIds.includes(id)
+      ? selectedAssetIds.filter((item) => item !== id)
+      : [...selectedAssetIds, id];
+    setSelectedAssetIds(updated);
+    notifyChange(mode, selectedAlbumIds, updated);
+  };
+
+  const handleSelectAllAlbums = () => {
+    const allIds = albums.map((a) => a.id);
+    setSelectedAlbumIds(allIds);
+    notifyChange(mode, allIds, selectedAssetIds);
+  };
+
+  const handleDeselectAllAlbums = () => {
+    setSelectedAlbumIds([]);
+    notifyChange(mode, [], selectedAssetIds);
+  };
+
+  const handleSelectAllAssets = () => {
+    const allIds = assets.map((a) => a.id);
+    setSelectedAssetIds(allIds);
+    notifyChange(mode, selectedAlbumIds, allIds);
+  };
+
+  const handleDeselectAllAssets = () => {
+    setSelectedAssetIds([]);
+    notifyChange(mode, selectedAlbumIds, []);
+  };
+
+  const filteredAlbums = albums.filter((a) =>
+    a.albumName.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const filteredAssets = assets.filter((a) =>
+    a.originalFileName.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="glass-card">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#10b981',
+          }}>
+            <FolderHeart size={20} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1.2rem' }}>3. İçerik ve Aktarım Modunu Seçin</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Test için yalnızca birkaç fotoğraf, seçili albümler veya hızlı test modu seçebilirsiniz
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={loadAlbumsAndAssets}
+          className="btn btn-secondary"
+          style={{ padding: '8px 12px' }}
+          disabled={loading || disabled}
+          title="Yenile"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </div>
+
+      {/* Mode Tabs */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '10px',
+        marginBottom: '20px',
+      }}>
+        {/* Test Batch Tab */}
+        <button
+          type="button"
+          onClick={() => handleModeChange('TEST_BATCH')}
+          style={{
+            padding: '12px',
+            borderRadius: '10px',
+            border: mode === 'TEST_BATCH' ? '2px solid #10b981' : '1px solid var(--border-subtle)',
+            background: mode === 'TEST_BATCH' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-input)',
+            color: '#fff',
+            cursor: 'pointer',
+            textAlign: 'left',
+            transition: 'all 0.2s',
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: mode === 'TEST_BATCH' ? '#34d399' : '#fff', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Sparkles size={14} /> Hızlı Test (ÖNERİLEN)
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            Sadece ilk {testLimit} adeti test et
+          </div>
+        </button>
+
+        {/* Individual Photos Tab */}
+        <button
+          type="button"
+          onClick={() => handleModeChange('SELECTED_ASSETS')}
+          style={{
+            padding: '12px',
+            borderRadius: '10px',
+            border: mode === 'SELECTED_ASSETS' ? '2px solid #06b6d4' : '1px solid var(--border-subtle)',
+            background: mode === 'SELECTED_ASSETS' ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-input)',
+            color: '#fff',
+            cursor: 'pointer',
+            textAlign: 'left',
+            transition: 'all 0.2s',
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '4px' }}>Tek Tek Fotoğraf Seç</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            Seçtiğin {selectedAssetIds.length} dosyayı aktar
+          </div>
+        </button>
+
+        {/* Selected Albums Tab */}
+        <button
+          type="button"
+          onClick={() => handleModeChange('SELECTED_ALBUMS')}
+          style={{
+            padding: '12px',
+            borderRadius: '10px',
+            border: mode === 'SELECTED_ALBUMS' ? '2px solid #06b6d4' : '1px solid var(--border-subtle)',
+            background: mode === 'SELECTED_ALBUMS' ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-input)',
+            color: '#fff',
+            cursor: 'pointer',
+            textAlign: 'left',
+            transition: 'all 0.2s',
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '4px' }}>Belirli Albümler</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            Seçtiğin {selectedAlbumIds.length} albümü aktar
+          </div>
+        </button>
+
+        {/* All Photos Tab */}
+        <button
+          type="button"
+          onClick={() => handleModeChange('ALL_PHOTOS')}
+          style={{
+            padding: '12px',
+            borderRadius: '10px',
+            border: mode === 'ALL_PHOTOS' ? '2px solid #06b6d4' : '1px solid var(--border-subtle)',
+            background: mode === 'ALL_PHOTOS' ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-input)',
+            color: '#fff',
+            cursor: 'pointer',
+            textAlign: 'left',
+            transition: 'all 0.2s',
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '4px' }}>Tüm Kitaplık</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            Toplam {libraryCount} dosya
+          </div>
+        </button>
+      </div>
+
+      {/* Mode 1: Quick Test Batch */}
+      {mode === 'TEST_BATCH' && (
+        <div style={{
+          background: 'rgba(16, 185, 129, 0.08)',
+          border: '1px solid rgba(16, 185, 129, 0.25)',
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '16px',
+        }}>
+          <h4 style={{ fontSize: '1rem', color: '#34d399', marginBottom: '8px' }}>
+            Hızlı Test Aktarımı (Güvenli Mod)
+          </h4>
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            Büyük kütüphanelerde tüm sistemi test etmek için kitaplığınızın en başından sadece belirlediğiniz sayıda dosyayı aktarır.
+          </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <label style={{ fontSize: '0.9rem', fontWeight: 600 }}>Kaç adet dosya test edilsin?</label>
+            <select
+              className="form-input"
+              style={{ width: '120px' }}
+              value={testLimit}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setTestLimit(val);
+                notifyChange(mode, selectedAlbumIds, selectedAssetIds, val);
+              }}
+            >
+              <option value="1">1 Dosya</option>
+              <option value="3">3 Dosya</option>
+              <option value="5">5 Dosya</option>
+              <option value="10">10 Dosya</option>
+              <option value="25">25 Dosya</option>
+              <option value="50">50 Dosya</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Mode 2: Individual Photo / Video Picker */}
+      {mode === 'SELECTED_ASSETS' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={handleSelectAllAssets}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+              >
+                <CheckSquare size={14} /> Tümünü Seç
+              </button>
+              <button
+                type="button"
+                onClick={handleDeselectAllAssets}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+              >
+                <Square size={14} /> Temizle
+              </button>
+            </div>
+
+            <div style={{ position: 'relative', width: '240px' }}>
+              <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="form-input"
+                style={{ paddingLeft: '34px', paddingRight: '12px', height: '36px', fontSize: '0.85rem' }}
+                placeholder="Dosya ara..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div style={{
+            maxHeight: '280px',
+            overflowY: 'auto',
+            background: 'var(--bg-input)',
+            borderRadius: '10px',
+            border: '1px solid var(--border-subtle)',
+            padding: '8px',
+          }}>
+            {loading ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                Fotoğraflar yükleniyor...
+              </div>
+            ) : filteredAssets.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Gösterilecek fotoğraf bulunamadı.
+              </div>
+            ) : (
+              filteredAssets.map((asset) => {
+                const isSelected = selectedAssetIds.includes(asset.id);
+                return (
+                  <div
+                    key={asset.id}
+                    onClick={() => handleToggleAsset(asset.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                      marginBottom: '4px',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {isSelected ? (
+                        <CheckSquare size={18} color="#06b6d4" />
+                      ) : (
+                        <Square size={18} color="var(--text-muted)" />
+                      )}
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#fff' }}>
+                          {asset.originalFileName}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {new Date(asset.fileCreatedAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className="badge badge-info" style={{ fontSize: '0.72rem' }}>
+                      {asset.type}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mode 3: Selected Albums */}
+      {mode === 'SELECTED_ALBUMS' && (
+        <div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'rgba(255,255,255,0.03)',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            marginBottom: '16px',
+            border: '1px solid var(--border-subtle)',
+          }}>
+            <input
+              type="checkbox"
+              id="createAlbumsCheckbox"
+              checked={createAlbums}
+              onChange={(e) => {
+                setCreateAlbums(e.target.checked);
+                notifyChange(mode, selectedAlbumIds, selectedAssetIds, testLimit, e.target.checked);
+              }}
+              style={{ width: '18px', height: '18px', accentColor: '#06b6d4', cursor: 'pointer' }}
+            />
+            <label htmlFor="createAlbumsCheckbox" style={{ fontSize: '0.9rem', cursor: 'pointer', userSelect: 'none' }}>
+              <strong>Google Photos üzerinde aynı isimle albüm oluştur</strong>
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={handleSelectAllAlbums}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+              >
+                <CheckSquare size={14} /> Tümünü Seç
+              </button>
+              <button
+                type="button"
+                onClick={handleDeselectAllAlbums}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+              >
+                <Square size={14} /> Temizle
+              </button>
+            </div>
+
+            <div style={{ position: 'relative', width: '240px' }}>
+              <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="form-input"
+                style={{ paddingLeft: '34px', paddingRight: '12px', height: '36px', fontSize: '0.85rem' }}
+                placeholder="Albüm ara..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div style={{
+            maxHeight: '240px',
+            overflowY: 'auto',
+            background: 'var(--bg-input)',
+            borderRadius: '10px',
+            border: '1px solid var(--border-subtle)',
+            padding: '8px',
+          }}>
+            {loading ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                Immich albümleri yükleniyor...
+              </div>
+            ) : filteredAlbums.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Albüm bulunamadı.
+              </div>
+            ) : (
+              filteredAlbums.map((album) => {
+                const isSelected = selectedAlbumIds.includes(album.id);
+                return (
+                  <div
+                    key={album.id}
+                    onClick={() => handleToggleAlbum(album.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                      marginBottom: '4px',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {isSelected ? (
+                        <CheckSquare size={18} color="#06b6d4" />
+                      ) : (
+                        <Square size={18} color="var(--text-muted)" />
+                      )}
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{album.albumName}</div>
+                        {album.description && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{album.description}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="badge badge-info" style={{ fontSize: '0.75rem' }}>
+                      <Layers size={12} />
+                      <span>{album.assetCount} içerik</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ color: '#f87171', fontSize: '0.85rem', marginTop: '10px' }}>
+          {error}
+        </div>
+      )}
+    </div>
+  );
+};
