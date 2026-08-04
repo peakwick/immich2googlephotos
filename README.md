@@ -9,6 +9,19 @@
 
 ---
 
+## 💬 Why This Tool Exists
+
+Self-hosting (via incredible tools like **Immich**) is normally about taking control of your data, escaping cloud subscriptions, and avoiding big-tech lock-in.
+
+However, real-world situations arise:
+- You might need to shut down or scale back your Homelab (moving home, hardware changes, energy costs, or maintenance overhead).
+- You or family members might miss specific cloud features, smart search capabilities, or Google Photos ecosystem integrations.
+- You need a reliable, zero-loss migration bridge back to Google Photos without losing original quality, EXIF metadata, or album structures.
+
+Even though moving *back* to the cloud might seem opposite to self-hosting philosophy, **true data ownership means having the freedom to move your media seamlessly in BOTH directions**. This tool was built to give self-hosters complete peace of mind and total control over their data library.
+
+---
+
 ## 🌟 Highlights & Key Features
 
 - ⚡ **5x–8x High-Performance Parallel Engine**: Features a multi-threaded parallel worker queue supporting **1 to 10 concurrent worker threads**, allowing 250+ media transfers in under 2 minutes.
@@ -108,6 +121,24 @@ Choose one of the 4 migration modes:
 ### 4. Start & Monitor
 - Click **Start Migration**.
 - Track real-time progress, speed in MB/s, estimated time remaining (ETA), and live log output.
+
+---
+
+## ⚠️ Known Limitations & Smart Workarounds
+
+Due to API constraints imposed by third-party platforms, please keep the following limitations in mind:
+
+### 1. 🌟 Favorites (Starred Photos)
+- **Google Photos API Limitation**: Google Photos REST API does not expose an endpoint to programmatically set the "Favorite" (star ⭐️) flag on imported media items.
+- **💡 Smart Workaround**:
+  1. In Immich, select all your favorite photos and place them in a dedicated album named **"Favorites"**.
+  2. Use this tool in **Album Mode** to replicate the **"Favorites"** album into Google Photos.
+  3. Open Google Photos (Web or Mobile), open the migrated **"Favorites"** album, select all photos, and click the **Star / Favorite (⭐️)** button.
+  4. Once starred, you can safely delete the temporary "Favorites" album. All starred photos will remain in your main timeline and Google Favorites collection!
+
+### 2. 🔒 Locked Folder / Vault Items
+- **Immich Privacy Constraint**: Assets stored in Immich's locked/vault storage cannot be accessed via standard API keys without user authorization and decryption.
+- **💡 Workaround**: Temporarily move locked assets to a standard album inside Immich before running the migration, then re-lock them after transfer.
 
 ---
 
