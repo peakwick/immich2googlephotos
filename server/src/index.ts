@@ -3,9 +3,15 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import dns from 'dns';
 import apiRouter from './routes/api.routes';
 
 dotenv.config();
+
+// Prefer IPv4 over IPv6 in Node.js HTTP/HTTPS client to prevent Docker Alpine container network timeouts
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;

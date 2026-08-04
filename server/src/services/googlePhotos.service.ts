@@ -164,37 +164,51 @@ export class GooglePhotosService {
     }
 
     // First check if an album with the same title already exists in writeable albums
-    const existingAlbums = await this.getAlbums();
-    const match = existingAlbums.find((a) => a.title.trim().toLowerCase() === title.trim().toLowerCase() && a.isWriteable);
-    if (match) {
-      return match;
-    }
-
     try {
-      const response = await axios.post(
-        'https://photoslibrary.googleapis.com/v1/albums',
-        {
-          album: { title },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      return {
-        id: response.data.id,
-        title: response.data.title || title,
-        productUrl: response.data.productUrl || '',
-        isWriteable: response.data.isWriteable ?? true,
-        mediaItemsCount: response.data.mediaItemsCount || '0',
-      };
-    } catch (error: any) {
-      const msg = error?.response?.data?.error?.message || error?.message || 'Failed to create Google Photos album';
-      throw new Error(`Create Google album error: ${msg}`);
+      const existingAlbums = await this.getAlbums();
+      const match = existingAlbums.find((a) => a.title.trim().toLowerCase() === title.trim().toLowerCase() && a.isWriteable);
+      if (match) {
+        return match;
+      }
+    } catch {
+      // Non-fatal if getAlbums fails due to appendonly scope
     }
+
+    let lastError: any = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await axios.post(
+          'https://photoslibrary.googleapis.com/v1/albums',
+          {
+            album: { title },
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 30000,
+          }
+        );
+
+        return {
+          id: response.data.id,
+          title: response.data.title || title,
+          productUrl: response.data.productUrl || '',
+          isWriteable: response.data.isWriteable ?? true,
+          mediaItemsCount: response.data.mediaItemsCount || '0',
+        };
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`Google Photos createAlbum attempt ${attempt} failed: ${error?.message}`);
+        if (attempt < 3) {
+          await new Promise((res) => setTimeout(res, 2000));
+        }
+      }
+    }
+
+    const msg = lastError?.response?.data?.error?.message || lastError?.message || 'Failed to create Google Photos album';
+    throw new Error(`Create Google album error: ${msg}`);
   }
 
   /**
