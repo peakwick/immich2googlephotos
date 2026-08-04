@@ -256,6 +256,50 @@ export class GooglePhotosService {
   }
 
   /**
+   * Uploads raw file bytes directly from a Buffer.
+   * Useful when we need to inject EXIF metadata in memory before uploading.
+   */
+  public async uploadMediaBuffer(
+    buffer: Buffer,
+    filename: string,
+    mimeType: string
+  ): Promise<string> {
+    const { accessToken } = this.getTokens();
+    if (!accessToken) {
+      throw new Error('Google Photos not connected.');
+    }
+
+    try {
+      const response = await axios.post(
+        'https://photoslibrary.googleapis.com/v1/uploads',
+        buffer,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/octet-stream',
+            'X-Goog-Upload-Content-Type': mimeType || 'application/octet-stream',
+            'X-Goog-Upload-Protocol': 'raw',
+            'X-Goog-Upload-File-Name': filename,
+          },
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+          timeout: 600000, // 10 mins timeout for large media streams
+        }
+      );
+
+      const uploadToken = response.data;
+      if (!uploadToken || typeof uploadToken !== 'string') {
+        throw new Error('Invalid uploadToken response from Google Photos');
+      }
+
+      return uploadToken;
+    } catch (error: any) {
+      const msg = error?.response?.data?.error?.message || error?.message || 'Upload buffer failed';
+      throw new Error(`Google Photos uploadMediaBuffer error: ${msg}`);
+    }
+  }
+
+  /**
    * Creates media items in Google Photos library or inside a specific album.
    * Batches up to 50 items per request as per Google Photos Library API specification.
    */

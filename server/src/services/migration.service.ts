@@ -10,6 +10,46 @@ import {
 import { immichService } from './immich.service';
 import { googlePhotosService } from './googlePhotos.service';
 import { storageService } from './storage.service';
+// @ts-ignore
+import * as piexif from 'piexifjs';
+
+function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+  });
+}
+
+function injectExifDate(jpegBuffer: Buffer, isoDateString: string): Buffer {
+  try {
+    const d = new Date(isoDateString);
+    if (isNaN(d.getTime())) return jpegBuffer;
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const exifDateStr = `${d.getFullYear()}:${pad(d.getMonth() + 1)}:${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+    const binaryString = jpegBuffer.toString('binary');
+    let exifObj: any;
+    try {
+      exifObj = piexif.load(binaryString);
+    } catch {
+      exifObj = { '0th': {}, 'Exif': {}, 'GPS': {}, 'Interop': {}, '1st': {} };
+    }
+
+    exifObj['0th'][piexif.TagNumbers.ImageIFD.DateTime] = exifDateStr;
+    exifObj['Exif'][piexif.TagNumbers.ExifIFD.DateTimeOriginal] = exifDateStr;
+    exifObj['Exif'][piexif.TagNumbers.ExifIFD.DateTimeDigitized] = exifDateStr;
+
+    const newExifBytes = piexif.dump(exifObj);
+    const newBinaryString = piexif.insert(newExifBytes, binaryString);
+    return Buffer.from(newBinaryString, 'binary');
+  } catch (err) {
+    console.warn(`Failed to inject EXIF date: ${err}`);
+    return jpegBuffer;
+  }
+}
 
 export class MigrationService {
   private progress: MigrationProgress;
@@ -147,15 +187,16 @@ export class MigrationService {
       const albumsToMigrate: Array<{ album: ImmichAlbum; assets: ImmichAsset[] }> = [];
       const allLibraryAssets: ImmichAsset[] = [];
 
-      if (options.mode === 'SELECTED_ALBUMS' || options.mode === 'BOTH') {
+      if (options.mode === 'SELECTED_ALBUMS' || options.mode === 'BOTH' || (options.mode === 'ALL_PHOTOS' && options.createAlbums)) {
         const allAlbums = await immichService.getAllAlbums();
-        for (const albumId of options.selectedAlbumIds) {
-          const album = allAlbums.find((a) => a.id === albumId);
-          if (album) {
-            this.log('info', `Fetching assets for album: "${album.albumName}"`);
-            const assets = await immichService.getAlbumAssets(albumId);
-            albumsToMigrate.push({ album, assets });
-          }
+        const albumsToProcess = options.mode === 'ALL_PHOTOS' 
+          ? allAlbums 
+          : allAlbums.filter(a => options.selectedAlbumIds.includes(a.id));
+
+        for (const album of albumsToProcess) {
+          this.log('info', `Fetching assets for album: "${album.albumName}"`);
+          const assets = await immichService.getAlbumAssets(album.id);
+          albumsToMigrate.push({ album, assets });
         }
       }
 
@@ -172,7 +213,12 @@ export class MigrationService {
           this.log('info', `Test Batch Mode: Selecting first ${limit} photos/videos for quick testing.`);
           allLibraryAssets.push(...allFetched.slice(0, limit));
         } else {
-          allLibraryAssets.push(...allFetched);
+          // Exclude assets that are already being migrated as part of an album
+          const albumAssetIds = new Set<string>();
+          albumsToMigrate.forEach(a => a.assets.forEach(asset => albumAssetIds.add(asset.id)));
+          
+          const filtered = allFetched.filter((a) => !albumAssetIds.has(a.id));
+          allLibraryAssets.push(...filtered);
         }
       }
 
@@ -335,14 +381,26 @@ export class MigrationService {
         // 1. Get readable stream of 100% original bit-for-bit file from Immich (or disk)
         const { stream, contentLength, mimeType } = await immichService.getAssetOriginalStream(asset);
 
-        // 2. Stream directly to Google Photos upload endpoint
-        const uploadToken = await googlePhotosService.uploadMediaStream(
-          stream,
-          asset.originalFileName,
-          mimeType
-        );
-
-        this.totalBytesTransferred += contentLength;
+        let uploadToken = '';
+        if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+          // 2. Buffer the stream and inject EXIF date for JPEGs
+          const buffer = await streamToBuffer(stream);
+          const injectedBuffer = injectExifDate(buffer, asset.fileCreatedAt);
+          uploadToken = await googlePhotosService.uploadMediaBuffer(
+            injectedBuffer,
+            asset.originalFileName,
+            mimeType
+          );
+          this.totalBytesTransferred += injectedBuffer.length;
+        } else {
+          // 2. Stream directly to Google Photos upload endpoint
+          uploadToken = await googlePhotosService.uploadMediaStream(
+            stream,
+            asset.originalFileName,
+            mimeType
+          );
+          this.totalBytesTransferred += contentLength;
+        }
 
         // 3. Batch create media item in Google Photos (preserves EXIF/GPS metadata from raw bytes)
         const createdItems = await googlePhotosService.batchCreateMediaItems(
@@ -350,7 +408,6 @@ export class MigrationService {
             {
               uploadToken,
               filename: asset.originalFileName,
-              description: `Migrated from Immich (${albumName || 'Library'})`,
             },
           ],
           targetGoogleAlbumId

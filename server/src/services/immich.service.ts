@@ -98,27 +98,38 @@ export class ImmichService {
   public async getAlbumAssets(albumId: string): Promise<ImmichAsset[]> {
     const client = this.getClient();
     try {
-      // 1. Try GET /api/albums/:id
-      const response = await client.get(`/api/albums/${albumId}`);
-      if (Array.isArray(response.data?.assets) && response.data.assets.length > 0) {
-        return response.data.assets.map((asset: any) => this.mapAsset(asset, albumId));
+      // For Immich v1.115+ we should use POST /api/search/metadata with albumIds
+      // We'll paginate using 'page' and 'take'
+      const allAssets: ImmichAsset[] = [];
+      let page = 1;
+      const take = 250;
+      
+      while (true) {
+        const searchRes = await client.post('/api/search/metadata', {
+          albumIds: [albumId],
+          take,
+          page,
+        });
+
+        const items: any[] = Array.isArray(searchRes.data?.assets?.items)
+          ? searchRes.data.assets.items
+          : Array.isArray(searchRes.data?.items)
+          ? searchRes.data.items
+          : Array.isArray(searchRes.data)
+          ? searchRes.data
+          : [];
+
+        if (items.length > 0) {
+          allAssets.push(...items.map(asset => this.mapAsset(asset, albumId)));
+        }
+
+        if (items.length < take) {
+          break; // Last page reached
+        }
+        page++;
       }
-
-      // 2. Fallback to POST /api/search/metadata with albumIds (Immich v1.115+)
-      const searchRes = await client.post('/api/search/metadata', {
-        albumIds: [albumId],
-        take: 5000,
-      });
-
-      const items: any[] = Array.isArray(searchRes.data?.assets?.items)
-        ? searchRes.data.assets.items
-        : Array.isArray(searchRes.data?.items)
-        ? searchRes.data.items
-        : Array.isArray(searchRes.data)
-        ? searchRes.data
-        : [];
-
-      return items.map((asset) => this.mapAsset(asset, albumId));
+      
+      return allAssets;
     } catch (error: any) {
       const msg = error?.response?.data?.message || error?.message || `Failed to fetch album assets for ${albumId}`;
       throw new Error(`Immich getAlbumAssets error: ${msg}`);
@@ -128,39 +139,38 @@ export class ImmichService {
   public async getAllAssets(): Promise<ImmichAsset[]> {
     const client = this.getClient();
     try {
-      // 1. Try GET /api/assets (Immich legacy)
-      try {
-        const response = await client.get('/api/assets', {
-          params: { take: 5000, isArchived: false },
+      const allAssets: ImmichAsset[] = [];
+      let page = 1;
+      const take = 250;
+
+      while (true) {
+        // Use POST /api/search/metadata (Immich v1.115+)
+        const searchRes = await client.post('/api/search/metadata', {
+          take,
+          page,
+          isArchived: false,
+          isTrashed: false,
         });
-        const assets: any[] = Array.isArray(response.data)
-          ? response.data
-          : Array.isArray(response.data?.assets)
-          ? response.data.assets
+
+        const items: any[] = Array.isArray(searchRes.data?.assets?.items)
+          ? searchRes.data.assets.items
+          : Array.isArray(searchRes.data?.items)
+          ? searchRes.data.items
+          : Array.isArray(searchRes.data)
+          ? searchRes.data
           : [];
-        if (assets.length > 0) {
-          return assets.map((asset) => this.mapAsset(asset));
+
+        if (items.length > 0) {
+          allAssets.push(...items.map(asset => this.mapAsset(asset)));
         }
-      } catch {
-        // Fallthrough to POST /api/search/metadata
+
+        if (items.length < take) {
+          break; // Last page reached
+        }
+        page++;
       }
 
-      // 2. Use POST /api/search/metadata (Immich v1.115+)
-      const searchRes = await client.post('/api/search/metadata', {
-        take: 5000,
-        isArchived: false,
-        isTrashed: false,
-      });
-
-      const items: any[] = Array.isArray(searchRes.data?.assets?.items)
-        ? searchRes.data.assets.items
-        : Array.isArray(searchRes.data?.items)
-        ? searchRes.data.items
-        : Array.isArray(searchRes.data)
-        ? searchRes.data
-        : [];
-
-      return items.map((asset) => this.mapAsset(asset));
+      return allAssets;
     } catch (error: any) {
       const msg = error?.response?.data?.message || error?.message || 'Failed to fetch assets';
       throw new Error(`Immich getAllAssets error: ${msg}`);
