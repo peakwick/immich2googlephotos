@@ -21,19 +21,19 @@ export class GooglePhotosService {
     };
   }
 
-  private getCredentials(): { clientId: string; clientSecret: string; redirectUri: string } {
+  private getCredentials(customRedirectUri?: string): { clientId: string; clientSecret: string; redirectUri: string } {
     const settings = storageService.getSettings();
     return {
       clientId: settings.googleClientId || DEFAULT_CLIENT_ID,
       clientSecret: settings.googleClientSecret || DEFAULT_CLIENT_SECRET,
-      redirectUri: DEFAULT_REDIRECT_URI,
+      redirectUri: customRedirectUri || DEFAULT_REDIRECT_URI,
     };
   }
 
-  public getAuthUrl(customClientId?: string, customClientSecret?: string): string {
-    const creds = this.getCredentials();
+  public getAuthUrl(customClientId?: string, customClientSecret?: string, redirectUri?: string): string {
+    const creds = this.getCredentials(redirectUri);
     const clientId = customClientId || creds.clientId;
-    const redirectUri = creds.redirectUri;
+    const targetRedirectUri = creds.redirectUri;
 
     const scopes = [
       'https://www.googleapis.com/auth/photoslibrary.appendonly',
@@ -44,7 +44,7 @@ export class GooglePhotosService {
 
     const params = new URLSearchParams({
       client_id: clientId,
-      redirect_uri: redirectUri,
+      redirect_uri: targetRedirectUri,
       response_type: 'code',
       scope: scopes.join(' '),
       access_type: 'offline',
@@ -54,8 +54,8 @@ export class GooglePhotosService {
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
-  public async exchangeCode(code: string, customClientId?: string, customClientSecret?: string): Promise<GoogleTokens> {
-    const creds = this.getCredentials();
+  public async exchangeCode(code: string, customClientId?: string, customClientSecret?: string, redirectUri?: string): Promise<GoogleTokens> {
+    const creds = this.getCredentials(redirectUri);
     const clientId = customClientId || creds.clientId;
     const clientSecret = customClientSecret || creds.clientSecret;
 

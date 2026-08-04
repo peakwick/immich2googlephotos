@@ -14,7 +14,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
   currentProfile,
   onNextStep,
 }) => {
-  const [activeTab, setActiveTab] = useState<'token' | 'url'>('token');
+  const [activeTab, setActiveTab] = useState<'url' | 'token'>('url');
   const [authCode, setAuthCode] = useState('');
   const [directToken, setDirectToken] = useState('');
   const [customClientId, setCustomClientId] = useState('');
@@ -23,11 +23,18 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPlaygroundModal, setShowPlaygroundModal] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
+
+  const redirectUri = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/api/auth/google/callback` : '';
 
   const handleCopyScope = () => {
     navigator.clipboard.writeText('https://www.googleapis.com/auth/photoslibrary.appendonly');
     setCopiedScope(true);
     setTimeout(() => setCopiedScope(false), 3000);
+  };
+
+  const handleCopyRedirectUri = () => {
+    navigator.clipboard.writeText(redirectUri);
   };
 
   useEffect(() => {
@@ -51,15 +58,16 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
 
   const handleOpenOAuthUrl = async () => {
     setError(null);
-    if (!customClientId && activeTab === 'url') {
-      setError('Please enter your Google Client ID or use the RECOMMENDED Instant Token (Playground) tab!');
+    if (!customClientId || !customClientSecret) {
+      setError('Please enter both your GCP Client ID and Client Secret!');
       return;
     }
     try {
       const response = await axios.get('/api/auth/google/url', {
         params: {
-          ...(customClientId ? { clientId: customClientId } : {}),
-          ...(customClientSecret ? { clientSecret: customClientSecret } : {}),
+          clientId: customClientId,
+          clientSecret: customClientSecret,
+          redirectUri,
         },
       });
       if (response.data.success && response.data.url) {
@@ -80,8 +88,9 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     try {
       const response = await axios.post('/api/auth/google/callback', {
         code: authCode.trim(),
-        ...(customClientId ? { clientId: customClientId } : {}),
-        ...(customClientSecret ? { clientSecret: customClientSecret } : {}),
+        clientId: customClientId,
+        clientSecret: customClientSecret,
+        redirectUri,
       });
 
       if (response.data.success) {
@@ -143,19 +152,22 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
           <div>
             <h3 style={{ fontSize: '1.25rem' }}>2. Authorize Google Photos</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Zero GCP setup friction via Instant Token or custom OAuth credentials
+              Choose a connection method below
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowPlaygroundModal(true)}
-          className="help-trigger-btn"
-        >
-          <HelpCircle size={15} />
-          <span>Playground Guide</span>
-        </button>
+        {activeTab === 'url' ? (
+          <button type="button" onClick={() => setShowClientModal(true)} className="help-trigger-btn">
+            <HelpCircle size={15} />
+            <span>How to get Client ID</span>
+          </button>
+        ) : (
+          <button type="button" onClick={() => setShowPlaygroundModal(true)} className="help-trigger-btn">
+            <HelpCircle size={15} />
+            <span>Playground Guide</span>
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -169,9 +181,32 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
       }}>
         <button
           type="button"
-          onClick={() => { setActiveTab('token'); setError(null); }}
+          onClick={() => { setActiveTab('url'); setError(null); }}
           style={{
             flex: 1.2,
+            padding: '10px',
+            borderRadius: '6px',
+            border: 'none',
+            background: activeTab === 'url' ? '#6366f1' : 'transparent',
+            color: '#fff',
+            fontWeight: 600,
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+          }}
+        >
+          <Key size={15} />
+          <span>Permanent Link (RECOMMENDED)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('token'); setError(null); }}
+          style={{
+            flex: 1,
             padding: '10px',
             borderRadius: '6px',
             border: 'none',
@@ -188,29 +223,70 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
           }}
         >
           <Sparkles size={15} />
-          <span>15s Instant Token (RECOMMENDED)</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => { setActiveTab('url'); setError(null); }}
-          style={{
-            flex: 1,
-            padding: '10px',
-            borderRadius: '6px',
-            border: 'none',
-            background: activeTab === 'url' ? '#6366f1' : 'transparent',
-            color: '#fff',
-            fontWeight: 600,
-            fontSize: '0.82rem',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-        >
-          Custom GCP Client ID
+          <span>Temporary Token (1-hr)</span>
         </button>
       </div>
 
-      {/* Tab 1: Instant Token (OAuth Playground) */}
+      {/* Tab 1: Custom GCP Client ID (Permanent) */}
+      {activeTab === 'url' && (
+        <div>
+          <div className="form-group">
+            <label className="form-label">GCP Client ID</label>
+            <input
+              type="text"
+              className="form-input"
+              value={customClientId}
+              onChange={(e) => setCustomClientId(e.target.value)}
+              placeholder="xxxxxxx.apps.googleusercontent.com"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">GCP Client Secret</label>
+            <input
+              type="password"
+              className="form-input"
+              value={customClientSecret}
+              onChange={(e) => setCustomClientSecret(e.target.value)}
+              placeholder="GOCSPX-..."
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleOpenOAuthUrl}
+            className="btn btn-primary"
+            style={{ width: '100%', marginBottom: '16px' }}
+            disabled={!customClientId || !customClientSecret}
+          >
+            <ExternalLink size={18} />
+            <span>Sign in with Google</span>
+          </button>
+
+          <form onSubmit={handleExchangeCode}>
+            <div className="form-group">
+              <label className="form-label">Authorization Code (if automatic redirect fails)</label>
+              <input
+                type="text"
+                className="form-input"
+                value={authCode}
+                onChange={(e) => setAuthCode(e.target.value)}
+                placeholder="4/0A..."
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-secondary"
+              style={{ width: '100%' }}
+              disabled={loading || !authCode.trim()}
+            >
+              <CheckCircle2 size={18} />
+              <span>Exchange Code Manually</span>
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Tab 2: Instant Token (OAuth Playground) */}
       {activeTab === 'token' && (
         <form onSubmit={handleSaveDirectToken}>
           <div className="form-group">
@@ -245,64 +321,6 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             <span>Save & Validate Token</span>
           </button>
         </form>
-      )}
-
-      {/* Tab 2: Custom GCP Client ID */}
-      {activeTab === 'url' && (
-        <div>
-          <div className="form-group">
-            <label className="form-label">GCP Client ID</label>
-            <input
-              type="text"
-              className="form-input"
-              value={customClientId}
-              onChange={(e) => setCustomClientId(e.target.value)}
-              placeholder="xxxxxxx.apps.googleusercontent.com"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">GCP Client Secret</label>
-            <input
-              type="password"
-              className="form-input"
-              value={customClientSecret}
-              onChange={(e) => setCustomClientSecret(e.target.value)}
-              placeholder="GOCSPX-..."
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleOpenOAuthUrl}
-            className="btn btn-primary"
-            style={{ width: '100%', marginBottom: '16px' }}
-          >
-            <ExternalLink size={18} />
-            <span>Open Google OAuth Login</span>
-          </button>
-
-          <form onSubmit={handleExchangeCode}>
-            <div className="form-group">
-              <label className="form-label">Authorization Code (if provided in popup)</label>
-              <input
-                type="text"
-                className="form-input"
-                value={authCode}
-                onChange={(e) => setAuthCode(e.target.value)}
-                placeholder="4/0A..."
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn btn-secondary"
-              style={{ width: '100%' }}
-              disabled={loading || !authCode.trim()}
-            >
-              <CheckCircle2 size={18} />
-              <span>Exchange Code & Authorize</span>
-            </button>
-          </form>
-        </div>
       )}
 
       {/* Connection Messages & Next Step */}
@@ -365,7 +383,47 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         </div>
       )}
 
-      {/* Playground Guide Popover Modal */}
+      {/* Client ID Guide Modal */}
+      {showClientModal && (
+        <div className="modal-overlay" onClick={() => setShowClientModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Key size={20} color="#6366f1" />
+                <h3 style={{ fontSize: '1.1rem' }}>How to get a Client ID (Permanent Link)</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClientModal(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              <ol style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '16px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" style={{ color: '#6366f1', fontWeight: 600 }}>Google Cloud Console</a>.</li>
+                <li>Create a new Project (or select an existing one).</li>
+                <li>Go to <strong>APIs & Services &gt; Library</strong>. Search for <strong>Photos Library API</strong> and click <strong>Enable</strong>.</li>
+                <li>Go to <strong>OAuth consent screen</strong>. Choose <strong>External</strong> and fill out only the required fields (App name, support email). Click Save and Continue until done.</li>
+                <li>Go to <strong>Credentials</strong>. Click <strong>Create Credentials &gt; OAuth client ID</strong>.</li>
+                <li>Select Application type: <strong>Web application</strong>.</li>
+                <li>Under <strong>Authorized redirect URIs</strong>, add exactly this URL:
+                  <div style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '10px', borderRadius: '6px', margin: '6px 0', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <code style={{ fontSize: '0.8rem', color: '#6366f1' }}>{redirectUri}</code>
+                    <button type="button" onClick={handleCopyRedirectUri} className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: '0.74rem' }}>
+                      Copy
+                    </button>
+                  </div>
+                </li>
+                <li>Click <strong>Create</strong>. Copy the Client ID and Client Secret into the app!</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Playground Guide Modal */}
       {showPlaygroundModal && (
         <div className="modal-overlay" onClick={() => setShowPlaygroundModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -385,12 +443,12 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             <div className="modal-body">
               <ol style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '12px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
                 <li>
-                  Open <a href="https://developers.google.com/oauthplayground/" target="_blank" rel="noreferrer" style={{ color: '#38bdf8', fontWeight: 600 }}>Google OAuth Playground</a>.
+                  Open <a href="https://developers.google.com/oauthplayground/" target="_blank" rel="noreferrer" style={{ color: '#10b981', fontWeight: 600 }}>Google OAuth Playground</a>.
                 </li>
                 <li>
                   At the bottom of the left sidebar, paste this scope URL into <strong>"Input your own scopes"</strong>:
                   <div style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '10px', borderRadius: '6px', margin: '6px 0', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <code style={{ fontSize: '0.8rem', color: '#38bdf8' }}>https://www.googleapis.com/auth/photoslibrary.appendonly</code>
+                    <code style={{ fontSize: '0.8rem', color: '#10b981' }}>https://www.googleapis.com/auth/photoslibrary.appendonly</code>
                     <button type="button" onClick={handleCopyScope} className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: '0.74rem' }}>
                       {copiedScope ? '✓ Copied' : 'Copy'}
                     </button>

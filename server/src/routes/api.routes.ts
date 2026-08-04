@@ -62,7 +62,7 @@ router.get('/immich/assets/:id/thumbnail', async (req: Request, res: Response) =
 // ==========================================
 router.get('/auth/google/url', (req: Request, res: Response) => {
   try {
-    const { clientId, clientSecret } = req.query;
+    const { clientId, clientSecret, redirectUri } = req.query;
     if (clientId || clientSecret) {
       storageService.saveSettings({
         ...(clientId ? { googleClientId: String(clientId) } : {}),
@@ -71,7 +71,8 @@ router.get('/auth/google/url', (req: Request, res: Response) => {
     }
     const url = googlePhotosService.getAuthUrl(
       clientId ? String(clientId) : undefined,
-      clientSecret ? String(clientSecret) : undefined
+      clientSecret ? String(clientSecret) : undefined,
+      redirectUri ? String(redirectUri) : undefined
     );
     res.json({ success: true, url });
   } catch (error: any) {
@@ -81,11 +82,11 @@ router.get('/auth/google/url', (req: Request, res: Response) => {
 
 router.post('/auth/google/callback', async (req: Request, res: Response) => {
   try {
-    const { code, clientId, clientSecret } = req.body;
+    const { code, clientId, clientSecret, redirectUri } = req.body;
     if (!code) {
       return res.status(400).json({ success: false, error: 'Authorization code is required' });
     }
-    const tokens = await googlePhotosService.exchangeCode(code, clientId, clientSecret);
+    const tokens = await googlePhotosService.exchangeCode(code, clientId, clientSecret, redirectUri);
     res.json({ success: true, tokens });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });
@@ -96,6 +97,12 @@ router.post('/auth/google/callback', async (req: Request, res: Response) => {
 router.get('/auth/google/callback', async (req: Request, res: Response) => {
   const code = req.query.code as string;
   const error = req.query.error as string;
+
+  // We should construct the current URL as redirect URI for the GET callback
+  // Usually this is requested by Google hitting the homelab backend
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.headers.host;
+  const currentUrl = `${protocol}://${host}${req.baseUrl}${req.path}`;
 
   if (error) {
     return res.status(400).send(`
@@ -114,7 +121,7 @@ router.get('/auth/google/callback', async (req: Request, res: Response) => {
   }
 
   try {
-    await googlePhotosService.exchangeCode(code);
+    await googlePhotosService.exchangeCode(code, undefined, undefined, currentUrl);
     res.send(`
       <html>
         <body style="font-family: 'Inter', sans-serif; text-align: center; padding: 50px; background: #0f172a; color: #38bdf8;">
