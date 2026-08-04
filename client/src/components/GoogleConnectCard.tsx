@@ -19,13 +19,14 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
   const [directToken, setDirectToken] = useState('');
   const [customClientId, setCustomClientId] = useState('');
   const [customClientSecret, setCustomClientSecret] = useState('');
+  const [customRedirectUri, setCustomRedirectUri] = useState(
+    typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/api/auth/google/callback` : ''
+  );
   const [copiedScope, setCopiedScope] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPlaygroundModal, setShowPlaygroundModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
-
-  const redirectUri = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/api/auth/google/callback` : '';
 
   const handleCopyScope = () => {
     navigator.clipboard.writeText('https://www.googleapis.com/auth/photoslibrary.appendonly');
@@ -34,7 +35,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
   };
 
   const handleCopyRedirectUri = () => {
-    navigator.clipboard.writeText(redirectUri);
+    navigator.clipboard.writeText(customRedirectUri);
   };
 
   useEffect(() => {
@@ -67,7 +68,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         params: {
           clientId: customClientId,
           clientSecret: customClientSecret,
-          redirectUri,
+          redirectUri: customRedirectUri,
         },
       });
       if (response.data.success && response.data.url) {
@@ -90,7 +91,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         code: authCode.trim(),
         clientId: customClientId,
         clientSecret: customClientSecret,
-        redirectUri,
+        redirectUri: customRedirectUri,
       });
 
       if (response.data.success) {
@@ -249,6 +250,22 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
               onChange={(e) => setCustomClientSecret(e.target.value)}
               placeholder="GOCSPX-..."
             />
+          </div>
+          
+          <div className="form-group">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>Authorized Redirect URI</label>
+            </div>
+            <input
+              type="text"
+              className="form-input"
+              value={customRedirectUri}
+              onChange={(e) => setCustomRedirectUri(e.target.value)}
+              placeholder="http://localhost:3383/api/auth/google/callback"
+            />
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              If Google blocks your local IP (e.g. 192.168.x.x), change this to <code>http://localhost:3383/api/auth/google/callback</code>, click Sign In, and when it fails on localhost, copy the code from the URL bar!
+            </p>
           </div>
 
           <button
@@ -410,7 +427,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
                 <li>Select Application type: <strong>Web application</strong>.</li>
                 <li>Under <strong>Authorized redirect URIs</strong>, add exactly this URL:
                   <div style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '10px', borderRadius: '6px', margin: '6px 0', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <code style={{ fontSize: '0.8rem', color: '#6366f1' }}>{redirectUri}</code>
+                    <code style={{ fontSize: '0.8rem', color: '#6366f1' }}>{customRedirectUri}</code>
                     <button type="button" onClick={handleCopyRedirectUri} className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: '0.74rem' }}>
                       Copy
                     </button>
