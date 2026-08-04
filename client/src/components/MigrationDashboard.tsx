@@ -10,7 +10,9 @@ import {
   AlertTriangle,
   FileImage,
   Folder,
+  RotateCcw,
 } from 'lucide-react';
+import axios from 'axios';
 import { MigrationProgress } from '../types';
 
 interface MigrationDashboardProps {
@@ -33,6 +35,17 @@ export const MigrationDashboard: React.FC<MigrationDashboardProps> = ({
   const isRunning = progress.status === 'RUNNING';
   const isPaused = progress.status === 'PAUSED';
   const isIdle = progress.status === 'IDLE' || progress.status === 'COMPLETED' || progress.status === 'CANCELLED' || progress.status === 'ERROR';
+
+  const handleResetHistory = async () => {
+    if (window.confirm('Aktarım veritabanını sıfırlamak istediğinize emin misiniz? Daha önce yüklenen fotoğrafların geçmiş kayıtları silinecek ve tüm fotoğraflar tekrar aktarılabilir duruma gelecektir.')) {
+      try {
+        await axios.delete('/api/history');
+        alert('Aktarım veritabanı başarıyla sıfırlandı! Artık tüm fotoğrafları sıfırdan aktarabilirsiniz.');
+      } catch (err: any) {
+        alert('Veritabanı sıfırlanırken hata oluştu: ' + (err.message || 'Bilinmeyen hata'));
+      }
+    }
+  };
 
   const totalProcessed = progress.completedAssets + progress.failedAssets + progress.skippedAssets;
   const percentage = progress.totalAssets > 0
@@ -240,15 +253,34 @@ export const MigrationDashboard: React.FC<MigrationDashboardProps> = ({
       {/* Action Controls */}
       <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
         {isIdle && (
-          <button
-            onClick={onStart}
-            className="btn btn-primary"
-            style={{ flex: 1, padding: '14px' }}
-            disabled={disabled}
-          >
-            <Play size={20} fill="#fff" />
-            <span>Start Migration</span>
-          </button>
+          <>
+            <button
+              onClick={onStart}
+              className="btn btn-primary"
+              style={{ flex: 2, padding: '14px' }}
+              disabled={disabled}
+            >
+              <Play size={20} fill="#fff" />
+              <span>Start Migration</span>
+            </button>
+
+            <button
+              onClick={handleResetHistory}
+              className="btn btn-secondary"
+              style={{
+                flex: 1,
+                padding: '14px',
+                border: '1px solid rgba(244, 63, 94, 0.4)',
+                color: '#f87171',
+                background: 'rgba(244, 63, 94, 0.08)'
+              }}
+              disabled={disabled}
+              title="Daha önce aktarılan dosya kayıtlarını siler"
+            >
+              <RotateCcw size={18} />
+              <span>Reset DB (Sıfırla)</span>
+            </button>
+          </>
         )}
 
         {isRunning && (
