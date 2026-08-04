@@ -349,8 +349,8 @@ export class MigrationService {
           return;
         } else {
           this.log(
-            'warn',
-            `Retry ${retries}/${MAX_RETRIES} for ${asset.originalFileName} due to: ${msg}`,
+            'info',
+            `Auto-retrying ${asset.originalFileName} (Attempt ${retries}/${MAX_RETRIES}) after temporary glitch...`,
             asset.id,
             albumName
           );

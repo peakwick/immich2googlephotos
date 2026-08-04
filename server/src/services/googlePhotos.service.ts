@@ -288,39 +288,53 @@ export class GooglePhotosService {
         payload.albumId = albumId;
       }
 
-      try {
-        const response = await axios.post(
-          'https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate',
-          payload,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            timeout: 60000,
-          }
-        );
+      let lastError: any = null;
+      let success = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const response = await axios.post(
+            'https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate',
+            payload,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              timeout: 60000,
+            }
+          );
 
-        const results: any[] = Array.isArray(response.data?.newMediaItemResults)
-          ? response.data.newMediaItemResults
-          : [];
+          const results: any[] = Array.isArray(response.data?.newMediaItemResults)
+            ? response.data.newMediaItemResults
+            : [];
 
-        for (const res of results) {
-          if (res.status?.message && res.status.message !== 'Success' && res.status.message !== 'OK') {
-            console.warn(`Item creation status warning for file: ${res.status.message}`);
+          for (const res of results) {
+            if (res.status?.message && res.status.message !== 'Success' && res.status.message !== 'OK') {
+              console.warn(`Item creation status warning for file: ${res.status.message}`);
+            }
+            if (res.mediaItem) {
+              createdItems.push({
+                id: res.mediaItem.id,
+                description: res.mediaItem.description,
+                productUrl: res.mediaItem.productUrl || '',
+                mimeType: res.mediaItem.mimeType || '',
+                filename: res.mediaItem.filename || '',
+              });
+            }
           }
-          if (res.mediaItem) {
-            createdItems.push({
-              id: res.mediaItem.id,
-              description: res.mediaItem.description,
-              productUrl: res.mediaItem.productUrl || '',
-              mimeType: res.mediaItem.mimeType || '',
-              filename: res.mediaItem.filename || '',
-            });
+          success = true;
+          break;
+        } catch (error: any) {
+          lastError = error;
+          console.warn(`batchCreateMediaItems attempt ${attempt} failed: ${error?.message}`);
+          if (attempt < 3) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
           }
         }
-      } catch (error: any) {
-        const msg = error?.response?.data?.error?.message || error?.message || 'Batch create media items failed';
+      }
+
+      if (!success) {
+        const msg = lastError?.response?.data?.error?.message || lastError?.message || 'Batch create media items failed';
         throw new Error(`Google Photos batchCreateMediaItems error: ${msg}`);
       }
     }
