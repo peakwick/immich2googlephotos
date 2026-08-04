@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import dns from 'dns';
+import os from 'os';
 import apiRouter from './routes/api.routes';
 
 dotenv.config();
@@ -14,7 +15,7 @@ if (dns.setDefaultResultOrder) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3383;
 
 app.use(cors({
   origin: true,
@@ -44,11 +45,30 @@ if (fs.existsSync(clientDistPath)) {
   });
 }
 
+function getLocalIPs(): string[] {
+  const ips: string[] = [];
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        ips.push(iface.address);
+      }
+    }
+  }
+  return ips;
+}
+
 // Start server
 app.listen(PORT, () => {
+  const ips = getLocalIPs();
+  console.log('\n====================================================');
+  console.log('🚀 IMMICH TO GOOGLE PHOTOS MIGRATION TOOL IS READY!');
   console.log('====================================================');
-  console.log(`🚀 Immich-to-Google-Photos running on port ${PORT}`);
-  console.log(`🔗 App URL: http://localhost:${PORT}`);
-  console.log(`✨ Ready to migrate photos and albums with zero cloud friction`);
-  console.log('====================================================');
+  console.log(`🔗 Access Web UI in your browser at:`);
+  console.log(`   👉 http://localhost:${PORT}`);
+  ips.forEach((ip) => {
+    console.log(`   👉 http://${ip}:${PORT}`);
+  });
+  console.log('\n✨ Built for 24/7 Always-On Homelab Migration');
+  console.log('====================================================\n');
 });
