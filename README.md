@@ -1,5 +1,8 @@
 # Immich to Google Photos Migration Tool 🚀📸
 
+> [!WARNING]
+> **This project is in active development.** The API integrations and backend architecture are frequently updated to handle edge cases and enhance reliability. Please report any issues or unexpected behaviors on GitHub!
+
 > **A high-performance, self-hosted web application to seamlessly transfer photos, videos, and albums from Immich to Google Photos with 100% original quality, EXIF metadata, and user-edited dates intact.**
 
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](#-docker--homelab-deployment)
@@ -139,6 +142,15 @@ Due to API constraints imposed by third-party platforms, please keep the followi
 ### 2. 🔒 Locked Folder / Vault Items
 - **Immich Privacy Constraint**: Assets stored in Immich's locked/vault storage cannot be accessed via standard API keys without user authorization and decryption.
 - **💡 Workaround**: Temporarily move locked assets to a standard album inside Immich before running the migration, then re-lock them after transfer.
+
+### 3. 🕒 User-Edited Dates vs. EXIF Injection
+- **Google Photos API Limitation**: When uploading files via the API, Google Photos strictly reads the creation date from the embedded EXIF binary headers in the file. If you manually changed a date inside the Immich UI, the Immich database updates, but the raw file on disk does *not* change.
+- **💡 Smart Workaround for JPEGs**: This tool features an advanced in-memory EXIF injection engine (`piexifjs`). If you edited the date of a **JPEG** photo in Immich, the engine intercepts the file buffer, dynamically injects your corrected date into the JPEG's EXIF header, and uploads it. Google Photos then correctly places it in the timeline!
+- **⚠️ Limitation for Videos & HEIC**: Unfortunately, dynamically editing EXIF/atoms for HEIC photos and MP4 videos in pure Node.js is currently not supported. Therefore, if you manually corrected dates for videos/HEIC in Immich, Google Photos may place them under today's date (or the date of the file timestamp) if their original embedded metadata is missing.
+
+### 4. ♾️ Bypassing Immich's 250 Asset Search Limit
+- **Technical Detail**: The Immich API (`POST /api/search/metadata`) strictly limits API queries to a maximum of 250 items per request, meaning "All Library" requests natively fail for large collections.
+- **💡 Solution Implemented**: Our backend engine features a robust recursive pagination loop that queries `page 1, 2, 3...` iteratively. This guarantees that whether you have 500 or 50,000 photos, the engine will fetch 100% of your library without dropping a single asset.
 
 ---
 
