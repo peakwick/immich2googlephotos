@@ -157,7 +157,8 @@ export const App: React.FC = () => {
               selectedIds: string[],
               createAlbums: boolean,
               selectedAssetIds?: string[],
-              maxItemsLimit?: number
+              maxItemsLimit?: number,
+              maxConcurrency?: number
             ) => {
               setMigrationOptions((prev) => ({
                 ...prev,
@@ -166,6 +167,7 @@ export const App: React.FC = () => {
                 createAlbums,
                 selectedAssetIds,
                 maxItemsLimit,
+                maxConcurrency: maxConcurrency ?? prev.maxConcurrency ?? 5,
               }));
             }}
           />

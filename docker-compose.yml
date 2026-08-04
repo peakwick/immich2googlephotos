@@ -9,6 +9,8 @@ services:
       - "3383:3383"
     volumes:
       - ./data:/app/server/data
+      # Optional: Mount Immich local library directory for zero-latency local disk reading
+      # - /path/to/immich/library:/data/upload:ro
     environment:
       - NODE_ENV=production
       - PORT=3383

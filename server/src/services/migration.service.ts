@@ -201,6 +201,9 @@ export class MigrationService {
       let itemsProcessedCount = 0;
       const reachedLimit = () => (isTestMode && options.maxItemsLimit) ? itemsProcessedCount >= options.maxItemsLimit : false;
 
+      const concurrency = options.maxConcurrency || 5;
+      this.log('info', `High-Performance Mode Active: Running ${concurrency} parallel upload worker streams.`);
+
       // 1. Process Albums first
       for (const group of albumsToMigrate) {
         if (this.isCancelled || reachedLimit()) break;
@@ -215,21 +218,31 @@ export class MigrationService {
           this.log('success', `Matched album: "${group.album.albumName}" -> Google Album ID: ${createdAlbum.id}`);
         }
 
-        for (const asset of group.assets) {
-          if (this.isCancelled || reachedLimit()) break;
-          await this.processSingleAsset(asset, group.album.albumName, targetGoogleAlbumId);
-          itemsProcessedCount++;
-        }
+        await this.processAssetsInParallel(
+          group.assets,
+          concurrency,
+          group.album.albumName,
+          targetGoogleAlbumId,
+          () => {
+            itemsProcessedCount++;
+            return reachedLimit();
+          }
+        );
       }
 
       // 2. Process Library assets
-      if (allLibraryAssets.length > 0) {
+      if (allLibraryAssets.length > 0 && !this.isCancelled && !reachedLimit()) {
         this.progress.currentAlbum = options.mode === 'TEST_BATCH' ? 'Test Batch' : 'Library Photos';
-        for (const asset of allLibraryAssets) {
-          if (this.isCancelled || reachedLimit()) break;
-          await this.processSingleAsset(asset, 'Library');
-          itemsProcessedCount++;
-        }
+        await this.processAssetsInParallel(
+          allLibraryAssets,
+          concurrency,
+          'Library',
+          undefined,
+          () => {
+            itemsProcessedCount++;
+            return reachedLimit();
+          }
+        );
       }
 
       if (this.isCancelled) {
@@ -248,6 +261,36 @@ export class MigrationService {
       this.log('error', `Migration execution error: ${error.message}`);
       this.emitProgress();
     }
+  }
+
+  private async processAssetsInParallel(
+    assets: ImmichAsset[],
+    concurrency: number,
+    albumName?: string,
+    targetGoogleAlbumId?: string,
+    onItemProcessed?: () => boolean
+  ): Promise<void> {
+    const queue = [...assets];
+    const workers: Array<Promise<void>> = [];
+
+    const worker = async () => {
+      while (queue.length > 0 && !this.isCancelled) {
+        if (onItemProcessed && onItemProcessed()) {
+          break;
+        }
+        const asset = queue.shift();
+        if (!asset) break;
+
+        await this.processSingleAsset(asset, albumName, targetGoogleAlbumId);
+      }
+    };
+
+    const workerCount = Math.min(concurrency, queue.length);
+    for (let i = 0; i < workerCount; i++) {
+      workers.push(worker());
+    }
+
+    await Promise.all(workers);
   }
 
   private async processSingleAsset(

@@ -9,7 +9,8 @@ interface AlbumSelectionCardProps {
     selectedAlbumIds: string[],
     createAlbums: boolean,
     selectedAssetIds?: string[],
-    maxItemsLimit?: number
+    maxItemsLimit?: number,
+    maxConcurrency?: number
   ) => void;
   disabled: boolean;
 }
@@ -30,6 +31,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [testLimit, setTestLimit] = useState<number>(5);
   const [createAlbums, setCreateAlbums] = useState(true);
+  const [maxConcurrency, setMaxConcurrency] = useState<number>(5);
 
   useEffect(() => {
     if (!disabled) {
@@ -56,7 +58,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
       }
 
       // Notify parent of safe initial state
-      onSelectionChange('TEST_BATCH', [], createAlbums, [], 5);
+      onSelectionChange('TEST_BATCH', [], createAlbums, [], 5, 5);
     } catch (err: any) {
       setError('Immich içerikleri yüklenirken hata oluştu.');
     } finally {
@@ -69,7 +71,8 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
     albumIds: string[],
     assetIds: string[],
     limit?: number,
-    createAlb?: boolean
+    createAlb?: boolean,
+    concurrency?: number
   ) => {
     const effectiveLimit = newMode === 'TEST_BATCH' ? (limit ?? testLimit) : undefined;
     onSelectionChange(
@@ -77,7 +80,8 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
       albumIds,
       createAlb ?? createAlbums,
       assetIds,
-      effectiveLimit
+      effectiveLimit,
+      concurrency ?? maxConcurrency
     );
   };
 
@@ -259,6 +263,64 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
             Toplam {libraryCount} dosya
           </div>
         </button>
+      </div>
+
+      {/* Concurrency & Performance Controls */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '16px',
+        padding: '14px 16px',
+        background: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: '10px',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        marginBottom: '20px',
+      }}>
+        <div>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '6px', color: '#38bdf8' }}>
+            ⚡️ Paralel Yükleme Hızı (Thread Sayısı)
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <select
+              value={maxConcurrency}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setMaxConcurrency(val);
+                notifyChange(mode, selectedAlbumIds, selectedAssetIds, testLimit, createAlbums, val);
+              }}
+              className="form-input"
+              style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+              disabled={disabled}
+            >
+              <option value={1}>1 Thread (Sıralı / Yavaş)</option>
+              <option value={3}>3 Thread (Dengeli)</option>
+              <option value={5}>5 Thread (Hızlı - Varsayılan ⭐)</option>
+              <option value={8}>8 Thread (Çok Hızlı 🚀)</option>
+              <option value={10}>10 Thread (Maksimum Performans 🔥)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <input
+            type="checkbox"
+            id="createAlbumsCheck"
+            checked={createAlbums}
+            onChange={(e) => {
+              const val = e.target.checked;
+              setCreateAlbums(val);
+              notifyChange(mode, selectedAlbumIds, selectedAssetIds, testLimit, val, maxConcurrency);
+            }}
+            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            disabled={disabled}
+          />
+          <label htmlFor="createAlbumsCheck" style={{ fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none' }}>
+            <strong>Google Photos Albümlerini Birebir Oluştur</strong>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Immich albüm yapısını Google Photos hesabınızda aynen kopyalar
+            </div>
+          </label>
+        </div>
       </div>
 
       {/* Mode 1: Quick Test Batch */}
