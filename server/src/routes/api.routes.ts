@@ -39,8 +39,8 @@ router.get('/immich/albums', async (_req: Request, res: Response) => {
 
 router.get('/immich/assets', async (_req: Request, res: Response) => {
   try {
-    const assets = await immichService.getAllAssets();
-    res.json({ success: true, count: assets.length, assets: assets.slice(0, 300) });
+    const preview = await immichService.getAssetPreview();
+    res.json({ success: true, count: preview.total, assets: preview.assets });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
