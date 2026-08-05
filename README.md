@@ -27,14 +27,17 @@ Even though moving *back* to the cloud might seem opposite to self-hosting philo
 
 ## 🌟 Highlights & Key Features
 
-- ⚡ **5x–8x High-Performance Parallel Engine**: Features a multi-threaded parallel worker queue supporting **1 to 10 concurrent worker threads**, allowing 250+ media transfers in under 2 minutes.
-- 📦 **Google Photos 50-Item API Batching**: Accumulates media tokens into Google Photos `batchCreateMediaItems` requests (up to 50 items per call), reducing REST API roundtrips by 98%.
+- ⚡ **5x–10x High-Performance Parallel Engine**: Features a multi-threaded parallel worker queue supporting **1 to 10 concurrent worker threads**, allowing 250+ media transfers in under 2 minutes.
+- 📦 **Google Photos API Batching**: Accumulates media tokens into Google Photos `batchCreateMediaItems` requests, significantly reducing REST API roundtrips.
 - 💎 **100% Bit-for-Bit Original Quality**: Streams original raw file bytes without any server-side re-encoding, resolution loss, or compression.
 - 📅 **EXIF & User-Edited Date Fidelity**: Preserves camera EXIF, GPS location, and respects user-edited date/time corrections made inside the Immich UI (`fileCreatedAt` and `localDateTime`).
 - 📁 **Instant Album Structure Replication**: Automatically creates matching albums in Google Photos and maps Immich photos/videos directly to their corresponding albums.
 - 🛡️ **Zero GCP Cloud Setup Required**: Supports browser-to-backend OAuth Playground authentication out of the box—no complex Google Cloud Platform setup needed.
-- 🔄 **Smart History & Deduplication**: Keeps track of migrated asset IDs in persistent local storage (`./data/migration_history.json`). Includes a one-click **Reset DB** feature to reset transfer history whenever needed.
-- 🛠️ **Self-Healing Resiliency**: Automatic 3-attempt retry loop for individual upload hiccups or temporary Google API micro-latencies.
+- 🔄 **Smart History & Deduplication**: Keeps track of migrated asset IDs in persistent local storage.
+- 🛠️ **Self-Healing Resiliency & Quota Management**: Smart exponential backoff (10s, 20s, 30s) automatically handles Google Photos API "Quota Exceeded" or `429 Too Many Requests` limits.
+- ♻️ **Final Retry Queue**: Assets that fail after 3 attempts are placed in a special queue and retried sequentially at the very end of the migration for maximum success rates.
+- ⚡ **Background Pre-fetching**: Loads massive libraries asynchronously while you configure your settings, completely eliminating UI freezing and loading spinners.
+- 💻 **Live Terminal Dashboard**: A fully modernized concurrent monitoring dashboard showing active worker threads, upload streams, auto-retries, and color-coded real-time logs.
 - 🐳 **Homelab & Docker Optimized**: Lightweight Alpine multi-stage Docker image, running on single port `3383` with optional direct local disk volume reading.
 
 ---
