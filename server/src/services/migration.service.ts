@@ -58,6 +58,7 @@ export class MigrationService {
   private isCancelled: boolean = false;
   private startTime: number = 0;
   private totalBytesTransferred: number = 0;
+  private failedAssetsQueue: Array<{ asset: ImmichAsset; albumName?: string; targetGoogleAlbumId?: string }> = [];
 
   constructor() {
     this.progress = this.getInitialProgress();
@@ -142,6 +143,7 @@ export class MigrationService {
     this.isCancelled = false;
     this.startTime = Date.now();
     this.totalBytesTransferred = 0;
+    this.failedAssetsQueue = [];
     this.progress = this.getInitialProgress();
     this.progress.status = 'RUNNING';
 
@@ -292,6 +294,25 @@ export class MigrationService {
         );
       }
 
+      // 3. Final Retry Pass for Failed Assets
+      if (this.failedAssetsQueue.length > 0 && !this.isCancelled && !reachedLimit()) {
+        this.log('info', `Running final retry pass for ${this.failedAssetsQueue.length} previously failed assets...`);
+        // Process them slowly (concurrency = 1) to avoid hitting quotas again
+        const retryQueue = [...this.failedAssetsQueue];
+        this.failedAssetsQueue = []; // Clear so we don't double process
+        
+        // We will decrement failedAssets before retrying, as processSingleAsset will increment either completed or failed again.
+        
+        await this.processAssetsInParallel(
+          retryQueue.map(q => q.asset),
+          1, // Single thread for retries
+          'Final Retry',
+          undefined,
+          undefined,
+          retryQueue
+        );
+      }
+
       if (this.isCancelled) {
         this.progress.status = 'CANCELLED';
         this.log('warn', 'Migration job cancelled.');
@@ -315,7 +336,8 @@ export class MigrationService {
     concurrency: number,
     albumName?: string,
     targetGoogleAlbumId?: string,
-    onItemProcessed?: () => boolean
+    onItemProcessed?: () => boolean,
+    retryQueueContext?: Array<{ asset: ImmichAsset; albumName?: string; targetGoogleAlbumId?: string }>
   ): Promise<void> {
     const queue = [...assets];
     const workers: Array<Promise<void>> = [];
@@ -328,7 +350,22 @@ export class MigrationService {
         const asset = queue.shift();
         if (!asset) break;
 
-        await this.processSingleAsset(workerId, asset, albumName, targetGoogleAlbumId);
+        let currentAlbumName = albumName;
+        let currentTargetAlbumId = targetGoogleAlbumId;
+        
+        // If we are in the final retry queue, grab the original context
+        if (retryQueueContext) {
+          const ctx = retryQueueContext.find(q => q.asset.id === asset.id);
+          if (ctx) {
+            currentAlbumName = ctx.albumName;
+            currentTargetAlbumId = ctx.targetGoogleAlbumId;
+            // Decrement failedAssets since we are retrying it now
+            this.progress.failedAssets = Math.max(0, this.progress.failedAssets - 1);
+            this.emitProgress();
+          }
+        }
+
+        await this.processSingleAsset(workerId, asset, currentAlbumName, currentTargetAlbumId, !!retryQueueContext);
       }
       
       // Cleanup worker state when done
@@ -351,7 +388,8 @@ export class MigrationService {
     workerId: number,
     asset: ImmichAsset,
     albumName?: string,
-    targetGoogleAlbumId?: string
+    targetGoogleAlbumId?: string,
+    isFinalRetry: boolean = false
   ): Promise<void> {
     while (this.isPaused && !this.isCancelled) {
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -479,17 +517,29 @@ export class MigrationService {
             asset.id,
             albumName
           );
+          
+          // Queue for final retry if it's not already the final retry pass
+          if (!isFinalRetry) {
+             this.failedAssetsQueue.push({ asset, albumName, targetGoogleAlbumId });
+          }
+          
           this.emitProgress();
           return;
         } else {
+          const isQuotaError = msg.toLowerCase().includes('quota') || msg.includes('429');
+          // Exponential backoff for Quota errors (10s, 20s, 30s)
+          // Standard backoff for other glitches (2s, 4s, 6s)
+          const delayMs = isQuotaError ? (retries * 10000) : (retries * 2000);
+          const reason = isQuotaError ? 'Google Photos Quota Limit' : 'temporary glitch';
+          
           this.log(
             'info',
-            `Auto-retrying ${asset.originalFileName} (Attempt ${retries}/${MAX_RETRIES}) after temporary glitch...`,
+            `Auto-retrying ${asset.originalFileName} (Attempt ${retries}/${MAX_RETRIES}) after ${reason}... Sleeping for ${delayMs/1000}s`,
             asset.id,
             albumName
           );
           updateWorkerState('RETRYING', retries);
-          await new Promise((resolve) => setTimeout(resolve, retries * 2000));
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
       }
     }
