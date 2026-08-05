@@ -4,6 +4,12 @@ import axios from 'axios';
 import { ImmichAlbum, ImmichAsset, MigrationMode } from '../types';
 
 interface AlbumSelectionCardProps {
+  albums: ImmichAlbum[];
+  assets: ImmichAsset[];
+  libraryCount: number;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
   onSelectionChange: (
     mode: MigrationMode,
     selectedAlbumIds: string[],
@@ -17,15 +23,16 @@ interface AlbumSelectionCardProps {
 }
 
 export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
+  albums,
+  assets,
+  libraryCount,
+  loading,
+  error,
+  onRefresh,
   onSelectionChange,
   disabled,
   onNextStep,
 }) => {
-  const [albums, setAlbums] = useState<ImmichAlbum[]>([]);
-  const [assets, setAssets] = useState<ImmichAsset[]>([]);
-  const [libraryCount, setLibraryCount] = useState<number>(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState<MigrationMode>('TEST_BATCH'); // Default to safe Test Batch!
@@ -36,37 +43,9 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   const [maxConcurrency, setMaxConcurrency] = useState<number>(5);
 
   useEffect(() => {
-    if (!disabled) {
-      loadAlbumsAndAssets();
-    }
-  }, [disabled]);
-
-  const loadAlbumsAndAssets = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [albumsRes, assetsRes] = await Promise.all([
-        axios.get('/api/immich/albums'),
-        axios.get('/api/immich/assets'),
-      ]);
-
-      if (albumsRes.data?.success) {
-        setAlbums(albumsRes.data.albums);
-      }
-
-      if (assetsRes.data?.success) {
-        setLibraryCount(assetsRes.data.count || 0);
-        setAssets(assetsRes.data.assets || []);
-      }
-
-      // Notify parent of safe initial state
-      onSelectionChange('TEST_BATCH', [], createAlbums, [], 5, 5);
-    } catch (err: any) {
-      setError('Immich içerikleri yüklenirken hata oluştu.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Notify parent of safe initial state on mount
+    onSelectionChange('TEST_BATCH', [], createAlbums, [], 5, 5);
+  }, []);
 
   const notifyChange = (
     newMode: MigrationMode,
@@ -163,7 +142,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
           </div>
         </div>
         <button
-          onClick={loadAlbumsAndAssets}
+          onClick={onRefresh}
           className="btn btn-secondary"
           style={{ padding: '8px 12px' }}
           disabled={loading || disabled}

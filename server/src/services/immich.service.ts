@@ -177,62 +177,7 @@ export class ImmichService {
     }
   }
 
-  public async getAssetPreview(): Promise<{ total: number; assets: ImmichAsset[] }> {
-    const client = this.getClient();
-    try {
-      // Fetch only first 300 items for the UI
-      const searchRes = await client.post('/api/search/metadata', {
-        take: 300,
-        page: 1,
-        isArchived: false,
-        isTrashed: false,
-      });
 
-      const items: any[] = Array.isArray(searchRes.data?.assets?.items)
-        ? searchRes.data.assets.items
-        : Array.isArray(searchRes.data?.items)
-        ? searchRes.data.items
-        : Array.isArray(searchRes.data)
-        ? searchRes.data
-        : [];
-
-      // Try to get total from pagination metadata
-      let total = searchRes.data?.assets?.total || searchRes.data?.total || searchRes.data?.count;
-      
-      // If we couldn't find total in pagination metadata, try statistics endpoint
-      if (!total && items.length === 300) {
-        try {
-          // Try newer Immich versions
-          const statRes = await client.get('/api/asset/statistics');
-          if (statRes.data) {
-            total = (statRes.data.images || 0) + (statRes.data.videos || 0);
-          }
-        } catch {
-          try {
-            // Try older Immich versions
-            const statRes = await client.get('/api/user/statistics');
-            if (statRes.data?.usage) {
-              total = (statRes.data.usage.photos || 0) + (statRes.data.usage.videos || 0);
-            }
-          } catch {
-            // Fallback
-          }
-        }
-      }
-
-      if (!total) {
-        total = items.length; // Worst case fallback
-      }
-
-      return {
-        total,
-        assets: items.map((asset) => this.mapAsset(asset)),
-      };
-    } catch (error: any) {
-      const msg = error?.response?.data?.message || error?.message || 'Failed to fetch asset preview';
-      throw new Error(`Immich getAssetPreview error: ${msg}`);
-    }
-  }
 
   private mapAsset(raw: any, albumId?: string): ImmichAsset {
     return {

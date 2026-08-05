@@ -13,6 +13,8 @@ import {
   MigrationOptions,
   MigrationProgress,
   MigrationMode,
+  ImmichAlbum,
+  ImmichAsset,
 } from './types';
 
 export const App: React.FC = () => {
@@ -22,6 +24,13 @@ export const App: React.FC = () => {
 
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+
+  // Background fetched data for Step 3
+  const [immichAlbums, setImmichAlbums] = useState<ImmichAlbum[]>([]);
+  const [immichAssets, setImmichAssets] = useState<ImmichAsset[]>([]);
+  const [libraryCount, setLibraryCount] = useState<number>(0);
+  const [isLibraryLoading, setIsLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
 
   const [migrationOptions, setMigrationOptions] = useState<MigrationOptions>({
     mode: 'TEST_BATCH',
@@ -113,6 +122,33 @@ export const App: React.FC = () => {
       eventSource.close();
     };
   }, []);
+
+  const loadLibraryBackground = async () => {
+    setIsLibraryLoading(true);
+    setLibraryError(null);
+    try {
+      const [albumsRes, assetsRes] = await Promise.all([
+        axios.get('/api/immich/albums'),
+        axios.get('/api/immich/assets'),
+      ]);
+      if (albumsRes.data?.success) setImmichAlbums(albumsRes.data.albums);
+      if (assetsRes.data?.success) {
+        setLibraryCount(assetsRes.data.count || 0);
+        setImmichAssets(assetsRes.data.assets || []);
+      }
+    } catch (err: any) {
+      setLibraryError('Immich içerikleri yüklenirken hata oluştu.');
+    } finally {
+      setIsLibraryLoading(false);
+    }
+  };
+
+  // Fetch library data in the background as soon as Immich is connected
+  useEffect(() => {
+    if (immichInfo && !isLibraryLoading && immichAlbums.length === 0 && immichAssets.length === 0) {
+      loadLibraryBackground();
+    }
+  }, [immichInfo]);
 
   const handleImmichConnected = (info: ImmichServerInfo) => {
     setImmichInfo(info);
@@ -247,6 +283,12 @@ export const App: React.FC = () => {
         {/* Step 3: Migration Mode & Speed Setup */}
         {activeStep === 3 && (
           <AlbumSelectionCard
+            albums={immichAlbums}
+            assets={immichAssets}
+            libraryCount={libraryCount}
+            loading={isLibraryLoading}
+            error={libraryError}
+            onRefresh={loadLibraryBackground}
             disabled={!immichInfo}
             onSelectionChange={(
               mode: MigrationMode,
