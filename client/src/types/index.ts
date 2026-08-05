@@ -51,17 +51,22 @@ export interface MigrationProgress {
   completedAssets: number;
   failedAssets: number;
   skippedAssets: number;
-  currentAsset?: {
-    id: string;
-    filename: string;
-    type: 'IMAGE' | 'VIDEO';
-    albumName?: string;
-  };
+  activeWorkers: ActiveWorkerState[];
   currentAlbum?: string;
   speedBytesPerSec: number;
   elapsedMs: number;
   etaMs: number;
   logs: MigrationLogEntry[];
+}
+
+export interface ActiveWorkerState {
+  workerId: number;
+  assetId: string;
+  filename: string;
+  type: 'IMAGE' | 'VIDEO';
+  status: 'DOWNLOADING' | 'UPLOADING' | 'RETRYING' | 'SAVING';
+  retries: number;
+  albumName?: string;
 }
 
 export type MigrationMode = 'ALL_PHOTOS' | 'SELECTED_ALBUMS' | 'SELECTED_ASSETS' | 'TEST_BATCH' | 'BOTH';

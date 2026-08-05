@@ -75,6 +75,7 @@ export class MigrationService {
       elapsedMs: 0,
       etaMs: 0,
       logs: [],
+      activeWorkers: [],
     };
   }
 
@@ -319,7 +320,7 @@ export class MigrationService {
     const queue = [...assets];
     const workers: Array<Promise<void>> = [];
 
-    const worker = async () => {
+    const worker = async (workerId: number) => {
       while (queue.length > 0 && !this.isCancelled) {
         if (onItemProcessed && onItemProcessed()) {
           break;
@@ -327,19 +328,27 @@ export class MigrationService {
         const asset = queue.shift();
         if (!asset) break;
 
-        await this.processSingleAsset(asset, albumName, targetGoogleAlbumId);
+        await this.processSingleAsset(workerId, asset, albumName, targetGoogleAlbumId);
+      }
+      
+      // Cleanup worker state when done
+      const idx = this.progress.activeWorkers.findIndex((w) => w.workerId === workerId);
+      if (idx !== -1) {
+        this.progress.activeWorkers.splice(idx, 1);
+        this.emitProgress();
       }
     };
 
     const workerCount = Math.min(concurrency, queue.length);
     for (let i = 0; i < workerCount; i++) {
-      workers.push(worker());
+      workers.push(worker(i));
     }
 
     await Promise.all(workers);
   }
 
   private async processSingleAsset(
+    workerId: number,
     asset: ImmichAsset,
     albumName?: string,
     targetGoogleAlbumId?: string
@@ -350,13 +359,34 @@ export class MigrationService {
 
     if (this.isCancelled) return;
 
-    this.progress.currentAsset = {
-      id: asset.id,
-      filename: asset.originalFileName,
-      type: asset.type,
-      albumName,
+    const updateWorkerState = (
+      status: 'DOWNLOADING' | 'UPLOADING' | 'RETRYING' | 'SAVING',
+      retries: number = 0
+    ) => {
+      let workerState = this.progress.activeWorkers.find((w) => w.workerId === workerId);
+      if (!workerState) {
+        workerState = {
+          workerId,
+          assetId: asset.id,
+          filename: asset.originalFileName,
+          type: asset.type,
+          status,
+          retries,
+          albumName,
+        };
+        this.progress.activeWorkers.push(workerState);
+      } else {
+        workerState.assetId = asset.id;
+        workerState.filename = asset.originalFileName;
+        workerState.type = asset.type;
+        workerState.status = status;
+        workerState.retries = retries;
+        workerState.albumName = albumName;
+      }
+      this.emitProgress();
     };
-    this.emitProgress();
+
+    updateWorkerState('DOWNLOADING');
 
     // Check if asset is already migrated
     if (storageService.isAssetMigrated(asset.id)) {
@@ -378,9 +408,11 @@ export class MigrationService {
 
     while (retries < MAX_RETRIES) {
       try {
+        updateWorkerState('DOWNLOADING', retries);
         // 1. Get readable stream of 100% original bit-for-bit file from Immich (or disk)
         const { stream, contentLength, mimeType } = await immichService.getAssetOriginalStream(asset);
 
+        updateWorkerState('UPLOADING', retries);
         let uploadToken = '';
         if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
           // 2. Buffer the stream and inject EXIF date for JPEGs
@@ -401,6 +433,8 @@ export class MigrationService {
           );
           this.totalBytesTransferred += contentLength;
         }
+
+        updateWorkerState('SAVING', retries);
 
         // 3. Batch create media item in Google Photos (preserves EXIF/GPS metadata from raw bytes)
         const createdItems = await googlePhotosService.batchCreateMediaItems(
@@ -454,6 +488,7 @@ export class MigrationService {
             asset.id,
             albumName
           );
+          updateWorkerState('RETRYING', retries);
           await new Promise((resolve) => setTimeout(resolve, retries * 2000));
         }
       }

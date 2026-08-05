@@ -5,15 +5,11 @@ import { ImmichServerInfo, GoogleProfile } from '../types';
 interface HeaderProps {
   immichInfo: ImmichServerInfo | null;
   googleProfile: GoogleProfile | null;
-  onOpenLogs: () => void;
-  logsCount: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   immichInfo,
   googleProfile,
-  onOpenLogs,
-  logsCount,
 }) => {
   return (
     <header style={{
@@ -72,27 +68,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Google: {googleProfile ? googleProfile.email : 'Not Connected'}</span>
           </div>
 
-          {/* Activity Logs Terminal Button */}
-          <button
-            onClick={onOpenLogs}
-            className="btn btn-secondary"
-            style={{ padding: '8px 14px', fontSize: '0.85rem' }}
-          >
-            <Terminal size={16} />
-            <span>Live Logs</span>
-            {logsCount > 0 && (
-              <span style={{
-                background: '#06b6d4',
-                color: '#000',
-                borderRadius: '999px',
-                padding: '2px 8px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-              }}>
-                {logsCount}
-              </span>
-            )}
-          </button>
         </div>
       </div>
     </header>

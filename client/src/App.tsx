@@ -5,7 +5,6 @@ import { ImmichConnectCard } from './components/ImmichConnectCard';
 import { GoogleConnectCard } from './components/GoogleConnectCard';
 import { AlbumSelectionCard } from './components/AlbumSelectionCard';
 import { MigrationDashboard } from './components/MigrationDashboard';
-import { ActivityLogModal } from './components/ActivityLogModal';
 import { MigrationSummaryModal } from './components/MigrationSummaryModal';
 import { Check, Server, Cloud, Sliders, Play } from 'lucide-react';
 import {
@@ -44,6 +43,7 @@ export const App: React.FC = () => {
     elapsedMs: 0,
     etaMs: 0,
     logs: [],
+    activeWorkers: [],
   });
 
   useEffect(() => {
@@ -163,10 +163,6 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleClearLogs = () => {
-    setProgress((prev) => ({ ...prev, logs: [] }));
-  };
-
   const isMigrateReady = Boolean(immichInfo && googleProfile);
 
   return (
@@ -174,8 +170,6 @@ export const App: React.FC = () => {
       <Header
         immichInfo={immichInfo}
         googleProfile={googleProfile}
-        onOpenLogs={() => setIsLogsOpen(true)}
-        logsCount={progress.logs.length}
       />
 
       <main className="main-content">
@@ -300,14 +294,6 @@ export const App: React.FC = () => {
       }}>
         Immich → Google Photos Migration Engine • Node.js, Express, React, Vite & TypeScript
       </footer>
-
-      {/* Activity Logs Drawer Modal */}
-      <ActivityLogModal
-        isOpen={isLogsOpen}
-        onClose={() => setIsLogsOpen(false)}
-        logs={progress.logs}
-        onClear={handleClearLogs}
-      />
 
       {/* Summary Celebration Modal */}
       <MigrationSummaryModal
