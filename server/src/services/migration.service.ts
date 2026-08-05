@@ -38,6 +38,12 @@ function injectExifDate(jpegBuffer: Buffer, isoDateString: string): Buffer {
       exifObj = { '0th': {}, 'Exif': {}, 'GPS': {}, 'Interop': {}, '1st': {} };
     }
 
+    exifObj['0th'] = exifObj['0th'] || {};
+    exifObj['Exif'] = exifObj['Exif'] || {};
+    exifObj['GPS'] = exifObj['GPS'] || {};
+    exifObj['Interop'] = exifObj['Interop'] || {};
+    exifObj['1st'] = exifObj['1st'] || {};
+
     exifObj['0th'][piexif.TagNumbers.ImageIFD.DateTime] = exifDateStr;
     exifObj['Exif'][piexif.TagNumbers.ExifIFD.DateTimeOriginal] = exifDateStr;
     exifObj['Exif'][piexif.TagNumbers.ExifIFD.DateTimeDigitized] = exifDateStr;
