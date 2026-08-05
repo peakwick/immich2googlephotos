@@ -47,6 +47,49 @@ export const App: React.FC = () => {
   });
 
   useEffect(() => {
+    // 1. Auto-connect logic on page reload
+    const autoConnect = async () => {
+      try {
+        const settingsRes = await axios.get('/api/settings');
+        const settings = settingsRes.data?.settings;
+        let isImmichConnected = false;
+
+        if (settings?.immichUrl && settings?.immichApiKey) {
+          try {
+            const immichRes = await axios.post('/api/immich/test', {
+              immichUrl: settings.immichUrl,
+              immichApiKey: settings.immichApiKey,
+            });
+            if (immichRes.data?.success && immichRes.data?.serverInfo) {
+              setImmichInfo(immichRes.data.serverInfo);
+              isImmichConnected = true;
+            }
+          } catch (e) {
+            console.warn('Auto-connect Immich failed', e);
+          }
+        }
+
+        if (isImmichConnected) {
+          try {
+            const googleRes = await axios.get('/api/auth/google/status');
+            if (googleRes.data?.success && googleRes.data?.connected && googleRes.data?.profile) {
+              setGoogleProfile(googleRes.data.profile);
+              setActiveStep(3); // Both connected, skip to Step 3
+            } else {
+              setActiveStep(2); // Only Immich connected, go to Step 2
+            }
+          } catch (e) {
+            setActiveStep(2);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load settings', err);
+      }
+    };
+
+    autoConnect();
+
+    // 2. Setup Server-Sent Events (SSE) for live migration progress
     const eventSource = new EventSource('/api/migration/stream');
 
     eventSource.onmessage = (event) => {
