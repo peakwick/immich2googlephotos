@@ -41,6 +41,11 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   const [testLimit, setTestLimit] = useState<number>(5);
   const [createAlbums, setCreateAlbums] = useState(true);
   const [maxConcurrency, setMaxConcurrency] = useState<number>(5);
+  const [visibleAssetCount, setVisibleAssetCount] = useState(100);
+
+  useEffect(() => {
+    setVisibleAssetCount(100);
+  }, [search]);
 
   useEffect(() => {
     // Notify parent of safe initial state on mount
@@ -116,6 +121,8 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   const filteredAssets = assets.filter((a) =>
     a.originalFileName.toLowerCase().includes(search.toLowerCase())
   );
+  
+  const displayedAssets = filteredAssets.slice(0, visibleAssetCount);
 
   return (
     <div className="glass-card">
@@ -396,46 +403,66 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                 No photos found.
               </div>
             ) : (
-              filteredAssets.map((asset) => {
-                const isSelected = selectedAssetIds.includes(asset.id);
-                return (
-                  <div
-                    key={asset.id}
-                    onClick={() => handleToggleAsset(asset.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
-                      marginBottom: '4px',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      {isSelected ? (
-                        <CheckSquare size={18} color="#06b6d4" />
-                      ) : (
-                        <Square size={18} color="var(--text-muted)" />
-                      )}
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#fff' }}>
-                          {asset.originalFileName}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {new Date(asset.fileCreatedAt).toLocaleDateString()}
+              <>
+                {displayedAssets.map((asset) => {
+                  const isSelected = selectedAssetIds.includes(asset.id);
+                  return (
+                    <div
+                      key={asset.id}
+                      onClick={() => handleToggleAsset(asset.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                        marginBottom: '4px',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+                        {isSelected ? (
+                          <CheckSquare size={18} color="#06b6d4" style={{ flexShrink: 0 }} />
+                        ) : (
+                          <Square size={18} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                        )}
+                        <img 
+                          src={`/api/immich/assets/${asset.id}/thumbnail`} 
+                          alt="" 
+                          loading="lazy"
+                          style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', background: '#334155', flexShrink: 0 }}
+                        />
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#fff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                            {asset.originalFileName}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {new Date(asset.fileCreatedAt).toLocaleDateString()}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <span className="badge badge-info" style={{ fontSize: '0.72rem' }}>
-                      {asset.type}
-                    </span>
+                      <span className="badge badge-info" style={{ fontSize: '0.72rem', flexShrink: 0 }}>
+                        {asset.type}
+                      </span>
+                    </div>
+                  );
+                })}
+                {visibleAssetCount < filteredAssets.length && (
+                  <div style={{ textAlign: 'center', marginTop: '12px', marginBottom: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setVisibleAssetCount(prev => prev + 100)}
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                    >
+                      Load More ({filteredAssets.length - visibleAssetCount} remaining)
+                    </button>
                   </div>
-                );
-              })
+                )}
+              </>
             )}
           </div>
         </div>
