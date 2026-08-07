@@ -58,18 +58,24 @@ router.get('/immich/assets/:id/thumbnail', async (req: Request, res: Response) =
 });
 
 // ==========================================
-// EXIF DIAGNOSTICS ENDPOINT
+// EXIF Diagnostics (SSE Stream)
 // ==========================================
-router.get('/exif/diagnostics', async (_req: Request, res: Response) => {
+router.get('/exif/diagnostics/stream', async (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
   try {
-    const assets = await immichService.getAllAssets(true);
+    // 1. Fast Album Mapping (without EXIF)
+    res.write(`data: ${JSON.stringify({ type: 'progress', message: 'Mapping albums...' })}\n\n`);
     const albums = await immichService.getAllAlbums();
-    
-    // Map albums by asset ID for quick lookup
     const albumMap: Record<string, string[]> = {};
+    
     for (const album of albums) {
       if (album.id) {
-        const albumAssets = await immichService.getAlbumAssets(album.id, true);
+        // FAST: withExif = false
+        const albumAssets = await immichService.getAlbumAssets(album.id, false);
         albumAssets.forEach(a => {
           if (!albumMap[a.id]) albumMap[a.id] = [];
           albumMap[a.id].push(album.albumName);
@@ -77,49 +83,61 @@ router.get('/exif/diagnostics', async (_req: Request, res: Response) => {
       }
     }
 
-    const results: any[] = [];
+    res.write(`data: ${JSON.stringify({ type: 'progress', message: 'Scanning EXIF metadata...', checked: 0 })}\n\n`);
 
-    for (const asset of assets) {
-      const dbDate = new Date(asset.fileCreatedAt);
-      const rawExif = asset.exifInfo?.dateTimeOriginal;
-      
-      let status = 'MISMATCH';
-      let diffMinutes = 0;
-      let exifDate: string | null = null;
+    // 2. Stream through all assets with Exif
+    await immichService.streamAllAssetsWithExif((assets, totalChecked) => {
+      const mismatches: any[] = [];
 
-      if (!rawExif) {
-        status = 'NO_EXIF';
-        diffMinutes = 999999;
-      } else {
-        const eDate = new Date(rawExif);
-        if (isNaN(eDate.getTime())) {
+      for (const asset of assets) {
+        if (asset.type !== 'IMAGE') continue;
+
+        const dbDate = new Date(asset.fileCreatedAt);
+        const rawExif = asset.exifInfo?.dateTimeOriginal;
+        
+        let status = 'MISMATCH';
+        let diffMinutes = 0;
+        let exifDate: string | null = null;
+
+        if (!rawExif) {
           status = 'NO_EXIF';
           diffMinutes = 999999;
         } else {
-          exifDate = eDate.toISOString();
-          diffMinutes = Math.abs(dbDate.getTime() - eDate.getTime()) / 60000;
+          const eDate = new Date(rawExif);
+          if (isNaN(eDate.getTime())) {
+            status = 'NO_EXIF';
+            diffMinutes = 999999;
+          } else {
+            exifDate = eDate.toISOString();
+            diffMinutes = Math.abs(dbDate.getTime() - eDate.getTime()) / 60000;
+          }
+        }
+
+        if (diffMinutes > 1 || status === 'NO_EXIF') {
+          mismatches.push({
+            assetId: asset.id,
+            originalFileName: asset.originalFileName,
+            type: asset.type,
+            albumNames: albumMap[asset.id] || [],
+            dbDate: dbDate.toISOString(),
+            exifDate,
+            status,
+            diffMinutes: Math.round(diffMinutes),
+          });
         }
       }
 
-      // If diff is greater than 1 minute (to account for minor rounding/timezone edge cases)
-      // Actually timezone differences can be exact hours. For now, any difference > 1 minute is flagged.
-      if (diffMinutes > 1 || status === 'NO_EXIF') {
-        results.push({
-          assetId: asset.id,
-          originalFileName: asset.originalFileName,
-          type: asset.type,
-          albumNames: albumMap[asset.id] || [],
-          dbDate: dbDate.toISOString(),
-          exifDate,
-          status,
-          diffMinutes: Math.round(diffMinutes),
-        });
+      if (mismatches.length > 0) {
+        res.write(`data: ${JSON.stringify({ type: 'mismatch', items: mismatches })}\n\n`);
       }
-    }
+      res.write(`data: ${JSON.stringify({ type: 'progress', checked: totalChecked })}\n\n`);
+    });
 
-    res.json({ success: true, count: results.length, results });
+    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+    res.end();
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+    res.end();
   }
 });
 

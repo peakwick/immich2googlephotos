@@ -180,7 +180,45 @@ export class ImmichService {
     }
   }
 
+  public async streamAllAssetsWithExif(callback: (assets: ImmichAsset[], totalChecked: number) => void): Promise<void> {
+    const client = this.getClient();
+    try {
+      let page = 1;
+      const take = 250;
+      let totalChecked = 0;
 
+      while (true) {
+        const searchRes = await client.post('/api/search/metadata', {
+          take,
+          page,
+          isArchived: false,
+          isTrashed: false,
+          withExif: true,
+        });
+
+        const items: any[] = Array.isArray(searchRes.data?.assets?.items)
+          ? searchRes.data.assets.items
+          : Array.isArray(searchRes.data?.items)
+          ? searchRes.data.items
+          : Array.isArray(searchRes.data)
+          ? searchRes.data
+          : [];
+
+        if (items.length > 0) {
+          totalChecked += items.length;
+          callback(items.map(asset => this.mapAsset(asset)), totalChecked);
+        }
+
+        if (items.length < take) {
+          break; // Last page reached
+        }
+        page++;
+      }
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to fetch assets stream';
+      throw new Error(`Immich streamAllAssetsWithExif error: ${msg}`);
+    }
+  }
 
   private mapAsset(raw: any, albumId?: string): ImmichAsset {
     return {

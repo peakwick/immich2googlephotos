@@ -12,21 +12,53 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
   const [results, setResults] = useState<ExifDiagnosticResult[]>([]);
   const [search, setSearch] = useState('');
 
+  const [statusMessage, setStatusMessage] = useState('Initializing stream...');
+  const [checkedCount, setCheckedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+
   useEffect(() => {
-    fetchDiagnostics();
+    fetchDiagnosticsStream();
+    return () => {
+      // Clean up the stream if component unmounts
+      // We will define eventSource in a ref or let it close naturally
+    };
   }, []);
 
-  const fetchDiagnostics = async () => {
+  const fetchDiagnosticsStream = () => {
     setLoading(true);
-    try {
-      const res = await axios.get('/api/exif/diagnostics');
-      if (res.data.success) {
-        setResults(res.data.results);
+    setResults([]);
+    
+    const eventSource = new EventSource('/api/exif/diagnostics/stream');
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'progress') {
+          if (data.message) setStatusMessage(data.message);
+          if (data.checked !== undefined) setCheckedCount(data.checked);
+        } else if (data.type === 'mismatch') {
+          setResults(prev => [...prev, ...data.items]);
+        } else if (data.type === 'done') {
+          setLoading(false);
+          eventSource.close();
+        } else if (data.type === 'error') {
+          console.error('EXIF stream error:', data.error);
+          setStatusMessage(`Error: ${data.error}`);
+          setLoading(false);
+          eventSource.close();
+        }
+      } catch (e) {
+        console.error('SSE parse error', e);
       }
-    } catch (e) {
-      console.error('Failed to fetch EXIF diagnostics', e);
-    }
-    setLoading(false);
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('EventSource error:', error);
+      setStatusMessage('Connection lost or failed.');
+      setLoading(false);
+      eventSource.close();
+    };
   };
 
   const filteredResults = results.filter(r => 
@@ -89,7 +121,8 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
               <div className="animate-spin" style={{ marginBottom: '16px' }}><Search size={32} /></div>
-              Scanning entire Immich library... This might take a few seconds.
+              <div style={{ fontWeight: 600, color: '#fff', marginBottom: '8px' }}>{statusMessage}</div>
+              {checkedCount > 0 && <div>Checked {checkedCount} items... Found {results.length} issues so far.</div>}
             </div>
           ) : results.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px', color: '#34d399' }}>
