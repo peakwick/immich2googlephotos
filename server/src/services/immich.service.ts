@@ -96,7 +96,7 @@ export class ImmichService {
     }
   }
 
-  public async getAlbumAssets(albumId: string): Promise<ImmichAsset[]> {
+  public async getAlbumAssets(albumId: string, withExif: boolean = false): Promise<ImmichAsset[]> {
     const client = this.getClient();
     try {
       // For Immich v1.115+ we should use POST /api/search/metadata with albumIds
@@ -110,7 +110,7 @@ export class ImmichService {
           albumIds: [albumId],
           take,
           page,
-          withExif: true,
+          ...(withExif ? { withExif: true } : {}),
         });
 
         const items: any[] = Array.isArray(searchRes.data?.assets?.items)
@@ -138,7 +138,7 @@ export class ImmichService {
     }
   }
 
-  public async getAllAssets(): Promise<ImmichAsset[]> {
+  public async getAllAssets(withExif: boolean = false): Promise<ImmichAsset[]> {
     const client = this.getClient();
     try {
       const allAssets: ImmichAsset[] = [];
@@ -152,7 +152,7 @@ export class ImmichService {
           page,
           isArchived: false,
           isTrashed: false,
-          withExif: true,
+          ...(withExif ? { withExif: true } : {}),
         });
 
         const items: any[] = Array.isArray(searchRes.data?.assets?.items)

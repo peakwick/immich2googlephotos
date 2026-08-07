@@ -62,14 +62,14 @@ router.get('/immich/assets/:id/thumbnail', async (req: Request, res: Response) =
 // ==========================================
 router.get('/exif/diagnostics', async (_req: Request, res: Response) => {
   try {
-    const assets = await immichService.getAllAssets();
+    const assets = await immichService.getAllAssets(true);
     const albums = await immichService.getAllAlbums();
     
     // Map albums by asset ID for quick lookup
     const albumMap: Record<string, string[]> = {};
     for (const album of albums) {
       if (album.id) {
-        const albumAssets = await immichService.getAlbumAssets(album.id);
+        const albumAssets = await immichService.getAlbumAssets(album.id, true);
         albumAssets.forEach(a => {
           if (!albumMap[a.id]) albumMap[a.id] = [];
           albumMap[a.id].push(album.albumName);
