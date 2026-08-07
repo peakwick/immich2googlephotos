@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FolderHeart, CheckSquare, Square, Search, Layers, RefreshCw, Image, Sparkles, Filter, ArrowRight, History, Trash2, X } from 'lucide-react';
+import { FolderHeart, CheckSquare, Square, Search, Layers, RefreshCw, Image, Sparkles, Filter, ArrowRight, History, Trash2, X, CheckCircle2 } from 'lucide-react';
 import axios from 'axios';
-import { ImmichAlbum, ImmichAsset, MigrationMode, MigrationSession } from '../types';
+import { ImmichAlbum, ImmichAsset, MigrationMode, MigrationSession, MigrationRecord } from '../types';
 
 interface AlbumSelectionCardProps {
   albums: ImmichAlbum[];
@@ -43,10 +43,30 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   const [maxConcurrency, setMaxConcurrency] = useState<number>(5);
   const [visibleAssetCount, setVisibleAssetCount] = useState(100);
 
-  // History State
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [sessions, setSessions] = useState<MigrationSession[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [migratedAssetIds, setMigratedAssetIds] = useState<Set<string>>(new Set());
+  const [migratedAlbumIds, setMigratedAlbumIds] = useState<Set<string>>(new Set());
+
+  const fetchMigratedData = async () => {
+    try {
+      const res = await axios.get('/api/history');
+      if (res.data.success && res.data.records) {
+        const records: MigrationRecord[] = res.data.records;
+        const assetSet = new Set<string>();
+        const albumSet = new Set<string>();
+        records.forEach(r => {
+          assetSet.add(r.assetId);
+          if (r.albumId) albumSet.add(r.albumId);
+        });
+        setMigratedAssetIds(assetSet);
+        setMigratedAlbumIds(albumSet);
+      }
+    } catch (e) {
+      console.error('Failed to fetch migration records', e);
+    }
+  };
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
@@ -71,6 +91,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
     try {
       await axios.delete(`/api/history/sessions/${id}`);
       fetchHistory();
+      fetchMigratedData();
     } catch (e) {
       console.error(e);
     }
@@ -81,6 +102,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
     try {
       await axios.delete('/api/history');
       fetchHistory();
+      fetchMigratedData();
     } catch (e) {
       console.error(e);
     }
@@ -93,6 +115,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   useEffect(() => {
     // Notify parent of safe initial state on mount
     onSelectionChange('TEST_BATCH', [], createAlbums, [], 5, 5);
+    fetchMigratedData();
   }, []);
 
   const notifyChange = (
@@ -502,6 +525,11 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                       <span className="badge badge-info" style={{ fontSize: '0.72rem', flexShrink: 0 }}>
                         {asset.type}
                       </span>
+                      {migratedAssetIds.has(asset.id) && (
+                        <div title="Already Migrated" style={{ marginLeft: '8px', color: '#10b981', display: 'flex', alignItems: 'center' }}>
+                          <CheckCircle2 size={16} />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -626,9 +654,16 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                       </div>
                     </div>
 
-                    <div className="badge badge-info" style={{ fontSize: '0.75rem' }}>
-                      <Layers size={12} />
-                      <span>{album.assetCount} içerik</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div className="badge badge-info" style={{ fontSize: '0.75rem' }}>
+                        <Layers size={12} />
+                        <span>{album.assetCount} içerik</span>
+                      </div>
+                      {migratedAlbumIds.has(album.id) && (
+                        <div title="Already Migrated" style={{ color: '#10b981', display: 'flex', alignItems: 'center' }}>
+                          <CheckCircle2 size={18} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
