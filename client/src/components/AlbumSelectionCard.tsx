@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FolderHeart, CheckSquare, Square, Search, Layers, RefreshCw, Image, Sparkles, Filter, ArrowRight, History, Trash2, X, CheckCircle2 } from 'lucide-react';
+import { FolderHeart, CheckSquare, Square, Search, Layers, RefreshCw, Image, Sparkles, Filter, ArrowRight, History, Trash2, X, CheckCircle2, CalendarX2 } from 'lucide-react';
 import axios from 'axios';
 import { ImmichAlbum, ImmichAsset, MigrationMode, MigrationSession, MigrationRecord } from '../types';
+import { ExifDiagnosticsModal } from './ExifDiagnosticsModal';
 
 interface AlbumSelectionCardProps {
   albums: ImmichAlbum[];
@@ -46,6 +47,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [sessions, setSessions] = useState<MigrationSession[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showExifDiagnostics, setShowExifDiagnostics] = useState(false);
   const [migratedAssetIds, setMigratedAssetIds] = useState<Set<string>>(new Set());
   const [migratedAlbumIds, setMigratedAlbumIds] = useState<Set<string>>(new Set());
 
@@ -215,6 +217,16 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => setShowExifDiagnostics(true)}
+            className="btn btn-secondary"
+            style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            disabled={loading || disabled}
+            title="EXIF Diagnostics"
+          >
+            <CalendarX2 size={16} color="#facc15" />
+            <span style={{ fontSize: '0.85rem', color: '#facc15' }}>EXIF Diagnostics</span>
+          </button>
           <button
             onClick={handleOpenHistory}
             className="btn btn-secondary"
@@ -785,6 +797,11 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* EXIF Diagnostics Modal */}
+      {showExifDiagnostics && (
+        <ExifDiagnosticsModal onClose={() => setShowExifDiagnostics(false)} />
       )}
     </div>
   );

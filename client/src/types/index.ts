@@ -99,3 +99,14 @@ export interface MigrationRecord {
   migratedAt: string;
   sessionId: string;
 }
+
+export interface ExifDiagnosticResult {
+  assetId: string;
+  originalFileName: string;
+  type: 'IMAGE' | 'VIDEO';
+  albumNames: string[];
+  dbDate: string;
+  exifDate: string | null;
+  status: 'NO_EXIF' | 'MISMATCH';
+  diffMinutes: number;
+}

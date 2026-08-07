@@ -58,6 +58,72 @@ router.get('/immich/assets/:id/thumbnail', async (req: Request, res: Response) =
 });
 
 // ==========================================
+// EXIF DIAGNOSTICS ENDPOINT
+// ==========================================
+router.get('/exif/diagnostics', async (_req: Request, res: Response) => {
+  try {
+    const assets = await immichService.getAllAssets();
+    const albums = await immichService.getAllAlbums();
+    
+    // Map albums by asset ID for quick lookup
+    const albumMap: Record<string, string[]> = {};
+    for (const album of albums) {
+      if (album.id) {
+        const albumAssets = await immichService.getAlbumAssets(album.id);
+        albumAssets.forEach(a => {
+          if (!albumMap[a.id]) albumMap[a.id] = [];
+          albumMap[a.id].push(album.albumName);
+        });
+      }
+    }
+
+    const results: any[] = [];
+
+    for (const asset of assets) {
+      const dbDate = new Date(asset.fileCreatedAt);
+      const rawExif = asset.exifInfo?.dateTimeOriginal;
+      
+      let status = 'MISMATCH';
+      let diffMinutes = 0;
+      let exifDate: string | null = null;
+
+      if (!rawExif) {
+        status = 'NO_EXIF';
+        diffMinutes = 999999;
+      } else {
+        const eDate = new Date(rawExif);
+        if (isNaN(eDate.getTime())) {
+          status = 'NO_EXIF';
+          diffMinutes = 999999;
+        } else {
+          exifDate = eDate.toISOString();
+          diffMinutes = Math.abs(dbDate.getTime() - eDate.getTime()) / 60000;
+        }
+      }
+
+      // If diff is greater than 1 minute (to account for minor rounding/timezone edge cases)
+      // Actually timezone differences can be exact hours. For now, any difference > 1 minute is flagged.
+      if (diffMinutes > 1 || status === 'NO_EXIF') {
+        results.push({
+          assetId: asset.id,
+          originalFileName: asset.originalFileName,
+          type: asset.type,
+          albumNames: albumMap[asset.id] || [],
+          dbDate: dbDate.toISOString(),
+          exifDate,
+          status,
+          diffMinutes: Math.round(diffMinutes),
+        });
+      }
+    }
+
+    res.json({ success: true, count: results.length, results });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==========================================
 // GOOGLE PHOTOS OAUTH ENDPOINTS
 // ==========================================
 router.get('/auth/google/url', (req: Request, res: Response) => {
