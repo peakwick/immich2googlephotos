@@ -87,7 +87,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   };
 
   const handleResetSession = async (id: string) => {
-    if (!confirm('Are you sure you want to forget this session? (Google Photos will NOT delete the photos, but this app will forget they were migrated)')) return;
+    if (!confirm('Are you sure you want to reset this session?\n\nNOTE: This will ONLY delete the local "uploaded" record so the items can be re-uploaded. It will NOT delete any photos or albums from Google Photos.')) return;
     try {
       await axios.delete(`/api/history/sessions/${id}`);
       fetchHistory();
@@ -98,7 +98,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   };
 
   const handleResetAllHistory = async () => {
-    if (!confirm('Are you sure you want to reset the ENTIRE migration history?')) return;
+    if (!confirm('Are you sure you want to reset the ENTIRE migration history?\n\nNOTE: This will ONLY clear the local database so all items can be re-uploaded. It will NOT delete any photos or albums from Google Photos.')) return;
     try {
       await axios.delete('/api/history');
       fetchHistory();
@@ -526,7 +526,10 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                         {asset.type}
                       </span>
                       {migratedAssetIds.has(asset.id) && (
-                        <div title="Already Migrated" style={{ marginLeft: '8px', color: '#10b981', display: 'flex', alignItems: 'center' }}>
+                        <div 
+                          title="Successfully uploaded from this system. Note: If the item was later deleted directly in Google Photos, we cannot know." 
+                          style={{ marginLeft: '8px', color: '#10b981', display: 'flex', alignItems: 'center' }}
+                        >
                           <CheckCircle2 size={16} />
                         </div>
                       )}
@@ -660,7 +663,10 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                         <span>{album.assetCount} içerik</span>
                       </div>
                       {migratedAlbumIds.has(album.id) && (
-                        <div title="Already Migrated" style={{ color: '#10b981', display: 'flex', alignItems: 'center' }}>
+                        <div 
+                          title="Successfully uploaded from this system. Note: If the album was later deleted directly in Google Photos, we cannot know." 
+                          style={{ color: '#10b981', display: 'flex', alignItems: 'center' }}
+                        >
                           <CheckCircle2 size={18} />
                         </div>
                       )}

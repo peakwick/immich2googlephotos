@@ -34,6 +34,8 @@ Even though moving *back* to the cloud might seem opposite to self-hosting philo
 - 📁 **Instant Album Structure Replication**: Automatically creates matching albums in Google Photos and maps Immich photos/videos directly to their corresponding albums.
 - 🛡️ **Zero GCP Cloud Setup Required**: Supports browser-to-backend OAuth Playground authentication out of the box—no complex Google Cloud Platform setup needed.
 - 🔄 **Smart History & Deduplication**: Keeps track of migrated asset IDs in persistent local storage.
+- 🕒 **Migration Sessions & Targeted Resets**: Every migration run is grouped into a "Session". You can view past sessions in the new History Modal and **reset specific sessions** to re-upload items without wiping the entire database.
+- ✅ **Visual Migration Indicators**: The UI highlights previously migrated albums and individual assets with a green checkmark so you instantly know what's already been backed up.
 - 🛠️ **Self-Healing Resiliency & Quota Management**: Smart exponential backoff (10s, 20s, 30s) automatically handles Google Photos API "Quota Exceeded" or `429 Too Many Requests` limits.
 - ♻️ **Final Retry Queue**: Assets that fail after 3 attempts are placed in a special queue and retried sequentially at the very end of the migration for maximum success rates.
 - ⚡ **Background Pre-fetching**: Loads massive libraries asynchronously while you configure your settings, completely eliminating UI freezing and loading spinners.
