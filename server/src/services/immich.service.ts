@@ -110,6 +110,7 @@ export class ImmichService {
           albumIds: [albumId],
           take,
           page,
+          withExif: true,
         });
 
         const items: any[] = Array.isArray(searchRes.data?.assets?.items)
@@ -151,6 +152,7 @@ export class ImmichService {
           page,
           isArchived: false,
           isTrashed: false,
+          withExif: true,
         });
 
         const items: any[] = Array.isArray(searchRes.data?.assets?.items)

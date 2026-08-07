@@ -99,16 +99,17 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
           ) : filteredResults.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No matches for your search.</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  <th style={{ padding: '12px 8px', width: '60px' }}>Image</th>
-                  <th style={{ padding: '12px 8px' }}>Filename & Album</th>
-                  <th style={{ padding: '12px 8px' }}>Immich DB Date</th>
-                  <th style={{ padding: '12px 8px' }}>Raw EXIF Date</th>
-                  <th style={{ padding: '12px 8px', textAlign: 'right' }}>Status</th>
-                </tr>
-              </thead>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    <th style={{ padding: '12px 8px', width: '60px' }}>Image</th>
+                    <th style={{ padding: '12px 8px', minWidth: '200px' }}>Filename & Album</th>
+                    <th style={{ padding: '12px 8px', width: '160px' }}>Immich DB Date</th>
+                    <th style={{ padding: '12px 8px', width: '160px' }}>Raw EXIF Date</th>
+                    <th style={{ padding: '12px 8px', width: '120px', textAlign: 'right' }}>Status</th>
+                  </tr>
+                </thead>
               <tbody>
                 {filteredResults.map(r => (
                   <tr key={r.assetId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s' }}>
@@ -142,6 +143,7 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
