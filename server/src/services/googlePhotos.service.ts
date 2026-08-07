@@ -21,6 +21,37 @@ export class GooglePhotosService {
     };
   }
 
+  private async getValidAccessToken(): Promise<string> {
+    const { accessToken, refreshToken } = this.getTokens();
+    if (!accessToken) return '';
+
+    try {
+      await axios.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${accessToken}`, { timeout: 5000 });
+      return accessToken;
+    } catch {
+      if (refreshToken) {
+        try {
+          const creds = this.getCredentials();
+          const response = await axios.post('https://oauth2.googleapis.com/token', new URLSearchParams({
+            client_id: creds.clientId,
+            client_secret: creds.clientSecret,
+            refresh_token: refreshToken,
+            grant_type: 'refresh_token',
+          }).toString(), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          });
+
+          const newAccessToken = response.data.access_token;
+          storageService.saveSettings({ googleAccessToken: newAccessToken });
+          return newAccessToken;
+        } catch (refreshErr) {
+          console.warn('Google token refresh failed:', refreshErr);
+        }
+      }
+      return accessToken; // Return old token if refresh fails, let subsequent calls handle the error
+    }
+  }
+
   private getCredentials(customRedirectUri?: string): { clientId: string; clientSecret: string; redirectUri: string } {
     const settings = storageService.getSettings();
     return {
@@ -97,7 +128,7 @@ export class GooglePhotosService {
   }
 
   public async getUserProfile(): Promise<{ name: string; email: string; picture?: string }> {
-    const { accessToken } = this.getTokens();
+    const accessToken = await this.getValidAccessToken();
     if (!accessToken || accessToken.length < 20) {
       throw new Error('No Google access token found. Please connect Google Photos first.');
     }
@@ -134,7 +165,7 @@ export class GooglePhotosService {
   }
 
   public async getAlbums(): Promise<GoogleAlbum[]> {
-    const { accessToken } = this.getTokens();
+    const accessToken = await this.getValidAccessToken();
     if (!accessToken) return [];
 
     try {
@@ -158,7 +189,7 @@ export class GooglePhotosService {
   }
 
   public async createAlbum(title: string): Promise<GoogleAlbum> {
-    const { accessToken } = this.getTokens();
+    const accessToken = await this.getValidAccessToken();
     if (!accessToken) {
       throw new Error('Google Photos not connected.');
     }
@@ -220,7 +251,7 @@ export class GooglePhotosService {
     filename: string,
     mimeType: string
   ): Promise<string> {
-    const { accessToken } = this.getTokens();
+    const accessToken = await this.getValidAccessToken();
     if (!accessToken) {
       throw new Error('Google Photos not connected.');
     }
@@ -264,7 +295,7 @@ export class GooglePhotosService {
     filename: string,
     mimeType: string
   ): Promise<string> {
-    const { accessToken } = this.getTokens();
+    const accessToken = await this.getValidAccessToken();
     if (!accessToken) {
       throw new Error('Google Photos not connected.');
     }
@@ -307,7 +338,7 @@ export class GooglePhotosService {
     items: Array<{ uploadToken: string; filename: string; description?: string }>,
     albumId?: string
   ): Promise<GoogleMediaItem[]> {
-    const { accessToken } = this.getTokens();
+    const accessToken = await this.getValidAccessToken();
     if (!accessToken) {
       throw new Error('Google Photos not connected.');
     }

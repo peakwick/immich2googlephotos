@@ -88,6 +88,7 @@ export class ImmichService {
         assetCount: a.assetCount || a.assets?.length || 0,
         createdAt: a.createdAt || new Date().toISOString(),
         updatedAt: a.updatedAt || new Date().toISOString(),
+        albumThumbnailAssetId: a.albumThumbnailAssetId || null,
       }));
     } catch (error: any) {
       const msg = error?.response?.data?.message || error?.message || 'Failed to fetch albums';

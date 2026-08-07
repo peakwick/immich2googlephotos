@@ -171,6 +171,24 @@ router.get('/auth/google/status', async (_req: Request, res: Response) => {
   }
 });
 
+router.post('/auth/google/disconnect', async (_req: Request, res: Response) => {
+  try {
+    storageService.saveSettings({ googleAccessToken: '', googleRefreshToken: '' });
+    res.json({ success: true, message: 'Disconnected' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/immich/disconnect', async (_req: Request, res: Response) => {
+  try {
+    storageService.saveSettings({ immichUrl: '', immichApiKey: '' });
+    res.json({ success: true, message: 'Disconnected' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ==========================================
 // MIGRATION JOB ENDPOINTS
 // ==========================================

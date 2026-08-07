@@ -541,14 +541,32 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {isSelected ? (
-                        <CheckSquare size={18} color="#06b6d4" />
+                        <CheckSquare size={18} color="#06b6d4" style={{ flexShrink: 0 }} />
                       ) : (
-                        <Square size={18} color="var(--text-muted)" />
+                        <Square size={18} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                       )}
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{album.albumName}</div>
+                      
+                      {album.albumThumbnailAssetId ? (
+                        <img 
+                          src={`/api/immich/assets/${album.albumThumbnailAssetId}/thumbnail`} 
+                          alt="" 
+                          loading="lazy"
+                          style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', background: '#334155', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div style={{ width: '44px', height: '44px', borderRadius: '6px', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Layers size={20} color="var(--text-muted)" />
+                        </div>
+                      )}
+
+                      <div style={{ overflow: 'hidden' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.92rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                          {album.albumName}
+                        </div>
                         {album.description && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{album.description}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                            {album.description}
+                          </div>
                         )}
                       </div>
                     </div>

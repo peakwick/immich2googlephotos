@@ -57,6 +57,17 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     return false;
   };
 
+  const handleDisconnect = async () => {
+    if (window.confirm('Are you sure you want to disconnect Google Photos?')) {
+      try {
+        await axios.post('/api/auth/google/disconnect');
+        window.location.reload();
+      } catch (err) {
+        window.location.reload();
+      }
+    }
+  };
+
   const handleOpenOAuthUrl = async () => {
     setError(null);
     if (!customClientId || !customClientSecret) {
@@ -377,6 +388,14 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             <span>Linked: <strong>{currentProfile.email}</strong></span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem' }}
+              title="Disconnect"
+            >
+              Disconnect
+            </button>
             <button
               type="button"
               onClick={checkGoogleStatus}

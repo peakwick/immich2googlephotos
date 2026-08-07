@@ -13,8 +13,10 @@ export interface ImmichAlbum {
   albumName: string;
   description: string;
   assetCount: number;
+  assets?: ImmichAsset[];
   createdAt: string;
   updatedAt: string;
+  albumThumbnailAssetId?: string;
 }
 
 export interface ImmichAsset {

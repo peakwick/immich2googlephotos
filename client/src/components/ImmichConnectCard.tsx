@@ -58,6 +58,17 @@ export const ImmichConnectCard: React.FC<ImmichConnectCardProps> = ({
     }
   };
 
+  const handleDisconnect = async () => {
+    if (window.confirm('Are you sure you want to disconnect Immich?')) {
+      try {
+        await axios.post('/api/immich/disconnect');
+        window.location.reload();
+      } catch (err) {
+        window.location.reload();
+      }
+    }
+  };
+
   return (
     <div className="glass-card">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
@@ -153,17 +164,27 @@ export const ImmichConnectCard: React.FC<ImmichConnectCardProps> = ({
               <CheckCircle2 size={18} />
               <span>Active: <strong>{currentInfo.user?.name || 'Authenticated User'}</strong> (Immich v{currentInfo.version})</span>
             </div>
-            {onNextStep && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
-                onClick={onNextStep}
-                className="btn btn-success"
-                style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                onClick={handleDisconnect}
+                style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem' }}
+                title="Disconnect"
               >
-                <span>Step 2</span>
-                <ArrowRight size={14} />
+                Disconnect
               </button>
-            )}
+              {onNextStep && (
+                <button
+                  type="button"
+                  onClick={onNextStep}
+                  className="btn btn-success"
+                  style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                >
+                  <span>Step 2</span>
+                  <ArrowRight size={14} />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
