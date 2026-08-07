@@ -65,6 +65,7 @@ export class MigrationService {
   private startTime: number = 0;
   private totalBytesTransferred: number = 0;
   private failedAssetsQueue: Array<{ asset: ImmichAsset; albumName?: string; targetGoogleAlbumId?: string }> = [];
+  private currentSessionId: string = '';
 
   constructor() {
     this.progress = this.getInitialProgress();
@@ -150,6 +151,7 @@ export class MigrationService {
     this.startTime = Date.now();
     this.totalBytesTransferred = 0;
     this.failedAssetsQueue = [];
+    this.currentSessionId = `session_${Date.now()}`;
     this.progress = this.getInitialProgress();
     this.progress.status = 'RUNNING';
 
@@ -329,6 +331,28 @@ export class MigrationService {
           `Migration completed! Transferred: ${this.progress.completedAssets}, Skipped: ${this.progress.skippedAssets}, Failed: ${this.progress.failedAssets}`
         );
       }
+      
+      // Save session history if any assets were completed
+      if (this.progress.completedAssets > 0) {
+        let desc = '';
+        if (options.mode === 'SELECTED_ALBUMS') {
+          desc = `Migrated ${options.selectedAlbumIds.length} albums`;
+        } else if (options.mode === 'ALL_PHOTOS') {
+          desc = `Migrated entire library (${this.progress.completedAssets} assets)`;
+        } else {
+          desc = `Migrated ${this.progress.completedAssets} items`;
+        }
+        
+        storageService.saveSession({
+          id: this.currentSessionId,
+          date: new Date().toISOString(),
+          mode: options.mode,
+          totalAssetsMigrated: this.progress.completedAssets,
+          albumsCreated: options.createAlbums && options.mode !== 'SELECTED_ASSETS' && options.mode !== 'TEST_BATCH' ? (options.selectedAlbumIds?.length || 1) : 0,
+          description: desc,
+        });
+      }
+
       this.emitProgress();
     } catch (error: any) {
       this.progress.status = 'ERROR';
@@ -500,6 +524,7 @@ export class MigrationService {
           albumId: asset.albumId,
           googleAlbumId: targetGoogleAlbumId,
           migratedAt: new Date().toISOString(),
+          sessionId: this.currentSessionId,
         });
 
         this.progress.completedAssets++;

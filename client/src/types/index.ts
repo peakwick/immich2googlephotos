@@ -81,3 +81,21 @@ export interface MigrationOptions {
   createAlbums: boolean;
   maxConcurrency: number;
 }
+
+export interface MigrationSession {
+  id: string;
+  date: string;
+  mode: MigrationMode;
+  totalAssetsMigrated: number;
+  albumsCreated: number;
+  description: string;
+}
+
+export interface MigrationRecord {
+  assetId: string;
+  googleMediaItemId?: string;
+  albumId?: string;
+  googleAlbumId?: string;
+  migratedAt: string;
+  sessionId: string;
+}

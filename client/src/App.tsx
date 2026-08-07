@@ -152,16 +152,12 @@ export const App: React.FC = () => {
 
   const handleImmichConnected = (info: ImmichServerInfo) => {
     setImmichInfo(info);
-    if (activeStep === 1) {
-      setActiveStep(2);
-    }
+    // Auto-advance is now handled explicitly by onNextStep button
   };
 
   const handleGoogleConnected = (profile: GoogleProfile) => {
     setGoogleProfile(profile);
-    if (activeStep === 2) {
-      setActiveStep(3);
-    }
+    // Auto-advance is now handled explicitly by onNextStep button
   };
 
   const handleStartMigration = async () => {

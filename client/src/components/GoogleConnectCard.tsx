@@ -106,7 +106,8 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
       });
 
       if (response.data.success) {
-        await checkGoogleStatus();
+        const ok = await checkGoogleStatus();
+        if (ok && onNextStep) onNextStep();
         setAuthCode('');
       } else {
         setError('Failed to exchange authorization code');
@@ -131,6 +132,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         const ok = await checkGoogleStatus();
         if (ok) {
           setDirectToken('');
+          if (onNextStep) onNextStep();
         } else {
           setError('Token saved but verification failed. Ensure you selected the photoslibrary.appendonly scope in Google Playground.');
         }

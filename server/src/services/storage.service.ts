@@ -1,16 +1,18 @@
 import fs from 'fs';
 import path from 'path';
-import { StoredSettings, MigrationRecord } from '../types';
+import { StoredSettings, MigrationRecord, MigrationSession } from '../types';
 
 export class StorageService {
   private dataDir: string;
   private settingsFile: string;
   private historyFile: string;
+  private sessionsFile: string;
 
   constructor() {
     this.dataDir = path.resolve(__dirname, '../../data');
     this.settingsFile = path.join(this.dataDir, 'settings.json');
     this.historyFile = path.join(this.dataDir, 'migration_history.json');
+    this.sessionsFile = path.join(this.dataDir, 'sessions.json');
     this.ensureFiles();
   }
 
@@ -33,6 +35,10 @@ export class StorageService {
 
     if (!fs.existsSync(this.historyFile)) {
       fs.writeFileSync(this.historyFile, JSON.stringify([], null, 2), 'utf-8');
+    }
+
+    if (!fs.existsSync(this.sessionsFile)) {
+      fs.writeFileSync(this.sessionsFile, JSON.stringify([], null, 2), 'utf-8');
     }
   }
 
@@ -84,6 +90,35 @@ export class StorageService {
 
   public clearMigrationHistory(): void {
     fs.writeFileSync(this.historyFile, JSON.stringify([], null, 2), 'utf-8');
+    fs.writeFileSync(this.sessionsFile, JSON.stringify([], null, 2), 'utf-8');
+  }
+
+  public getSessions(): MigrationSession[] {
+    try {
+      const content = fs.readFileSync(this.sessionsFile, 'utf-8');
+      return JSON.parse(content);
+    } catch (error) {
+      console.error('Failed to read sessions.json:', error);
+      return [];
+    }
+  }
+
+  public saveSession(session: MigrationSession): void {
+    const sessions = this.getSessions();
+    sessions.push(session);
+    fs.writeFileSync(this.sessionsFile, JSON.stringify(sessions, null, 2), 'utf-8');
+  }
+
+  public deleteSession(sessionId: string): void {
+    // 1. Remove from sessions.json
+    const sessions = this.getSessions();
+    const updatedSessions = sessions.filter(s => s.id !== sessionId);
+    fs.writeFileSync(this.sessionsFile, JSON.stringify(updatedSessions, null, 2), 'utf-8');
+
+    // 2. Remove all related records from migration_history.json
+    const records = this.getMigrationRecords();
+    const updatedRecords = records.filter(r => r.sessionId !== sessionId);
+    fs.writeFileSync(this.historyFile, JSON.stringify(updatedRecords, null, 2), 'utf-8');
   }
 }
 

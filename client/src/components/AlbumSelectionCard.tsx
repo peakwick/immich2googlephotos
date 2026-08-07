@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FolderHeart, CheckSquare, Square, Search, Layers, RefreshCw, Image, Sparkles, Filter, ArrowRight } from 'lucide-react';
+import { FolderHeart, CheckSquare, Square, Search, Layers, RefreshCw, Image, Sparkles, Filter, ArrowRight, History, Trash2, X } from 'lucide-react';
 import axios from 'axios';
-import { ImmichAlbum, ImmichAsset, MigrationMode } from '../types';
+import { ImmichAlbum, ImmichAsset, MigrationMode, MigrationSession } from '../types';
 
 interface AlbumSelectionCardProps {
   albums: ImmichAlbum[];
@@ -42,6 +42,49 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   const [createAlbums, setCreateAlbums] = useState(true);
   const [maxConcurrency, setMaxConcurrency] = useState<number>(5);
   const [visibleAssetCount, setVisibleAssetCount] = useState(100);
+
+  // History State
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [sessions, setSessions] = useState<MigrationSession[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await axios.get('/api/history/sessions');
+      if (res.data.success) {
+        setSessions(res.data.sessions);
+      }
+    } catch (e) {
+      console.error('Failed to fetch history', e);
+    }
+    setLoadingHistory(false);
+  };
+
+  const handleOpenHistory = () => {
+    fetchHistory();
+    setShowHistoryModal(true);
+  };
+
+  const handleResetSession = async (id: string) => {
+    if (!confirm('Are you sure you want to forget this session? (Google Photos will NOT delete the photos, but this app will forget they were migrated)')) return;
+    try {
+      await axios.delete(`/api/history/sessions/${id}`);
+      fetchHistory();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleResetAllHistory = async () => {
+    if (!confirm('Are you sure you want to reset the ENTIRE migration history?')) return;
+    try {
+      await axios.delete('/api/history');
+      fetchHistory();
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     setVisibleAssetCount(100);
@@ -148,15 +191,27 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
             </p>
           </div>
         </div>
-        <button
-          onClick={onRefresh}
-          className="btn btn-secondary"
-          style={{ padding: '8px 12px' }}
-          disabled={loading || disabled}
-          title="Refresh"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={handleOpenHistory}
+            className="btn btn-secondary"
+            style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            disabled={loading || disabled}
+            title="Migration History"
+          >
+            <History size={16} />
+            <span style={{ fontSize: '0.85rem' }}>History</span>
+          </button>
+          <button
+            onClick={onRefresh}
+            className="btn btn-secondary"
+            style={{ padding: '8px 12px' }}
+            disabled={loading || disabled}
+            title="Refresh"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Mode Tabs */}
@@ -600,6 +655,94 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
             <span>Proceed to Migration Engine (Step 4)</span>
             <ArrowRight size={18} />
           </button>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {showHistoryModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '16px',
+            width: '90%',
+            maxWidth: '700px',
+            maxHeight: '80vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <History size={20} color="#38bdf8" />
+                <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Migration Sessions History</h2>
+              </div>
+              <button onClick={() => setShowHistoryModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+              {loadingHistory ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading history...</div>
+              ) : sessions.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No migration sessions found.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {sessions.map(session => (
+                    <div key={session.id} style={{ 
+                      background: 'rgba(255,255,255,0.03)', 
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '10px',
+                      padding: '16px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '4px' }}>
+                          {session.description || `Migration (${session.mode})`}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '16px' }}>
+                          <span>Date: {new Date(session.date).toLocaleString()}</span>
+                          <span>Assets: {session.totalAssetsMigrated}</span>
+                          {session.albumsCreated > 0 && <span>Albums Created: {session.albumsCreated}</span>}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleResetSession(session.id)}
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '0.8rem', color: '#f87171', borderColor: 'rgba(248, 113, 113, 0.3)' }}
+                        title="Forget this session (allows re-migrating these items)"
+                      >
+                        <Trash2 size={14} style={{ marginRight: '6px' }} />
+                        Reset Session
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)' }}>
+              <button 
+                onClick={handleResetAllHistory}
+                className="btn btn-secondary" 
+                style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                disabled={sessions.length === 0}
+              >
+                Clear Entire Database
+              </button>
+              <button onClick={() => setShowHistoryModal(false)} className="btn btn-primary">
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

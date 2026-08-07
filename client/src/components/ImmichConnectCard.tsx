@@ -47,6 +47,7 @@ export const ImmichConnectCard: React.FC<ImmichConnectCardProps> = ({
       if (response.data.success && response.data.serverInfo) {
         setSuccessMsg(`Connected to Immich v${response.data.serverInfo.version}`);
         onConnected(response.data.serverInfo);
+        if (onNextStep) onNextStep();
       } else {
         setError('Unexpected response from Immich server');
       }

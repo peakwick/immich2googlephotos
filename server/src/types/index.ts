@@ -140,10 +140,20 @@ export interface StoredSettings {
   googleRefreshToken: string;
 }
 
+export interface MigrationSession {
+  id: string;
+  date: string;
+  mode: MigrationMode;
+  totalAssetsMigrated: number;
+  albumsCreated: number;
+  description: string;
+}
+
 export interface MigrationRecord {
   assetId: string;
   googleMediaItemId?: string;
   albumId?: string;
   googleAlbumId?: string;
   migratedAt: string;
+  sessionId: string;
 }

@@ -252,6 +252,19 @@ router.get('/history', (_req: Request, res: Response) => {
   res.json({ success: true, records, count: records.length });
 });
 
+router.get('/history/sessions', (_req: Request, res: Response) => {
+  const sessions = storageService.getSessions();
+  // Sort descending by date
+  sessions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  res.json({ success: true, sessions, count: sessions.length });
+});
+
+router.delete('/history/sessions/:id', (req: Request, res: Response) => {
+  const sessionId = req.params.id;
+  storageService.deleteSession(sessionId);
+  res.json({ success: true, message: 'Session deleted' });
+});
+
 router.delete('/history', (_req: Request, res: Response) => {
   storageService.clearMigrationHistory();
   res.json({ success: true, message: 'Migration history cleared' });
