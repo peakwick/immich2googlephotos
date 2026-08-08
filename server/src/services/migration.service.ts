@@ -442,8 +442,8 @@ export class MigrationService {
           const physicalExif = await immichService.getAssetPhysicalExifDate(asset.id);
           let exifMatches = false;
           
-          if (physicalExif.exifDate || physicalExif.createDate || physicalExif.modifyDate) {
-            const pDateStr = physicalExif.exifDate || physicalExif.createDate || physicalExif.modifyDate;
+          if (physicalExif && (physicalExif.dateTimeOriginal || physicalExif.createDate || physicalExif.modifyDate)) {
+            const pDateStr = physicalExif.dateTimeOriginal || physicalExif.createDate || physicalExif.modifyDate;
             if (pDateStr) {
               const pDate = new Date(pDateStr.replace(/^(\d{4}):(\d{2}):(\d{2}) /, '$1-$2-$3T'));
               const dbDate = new Date(asset.fileCreatedAt);
