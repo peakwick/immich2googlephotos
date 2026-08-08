@@ -121,10 +121,18 @@ router.get('/exif/diagnostics/stream', async (req: Request, res: Response) => {
             } else {
               exifDate = eDate.toISOString();
               diffMinutes = Math.abs(dbDate.getTime() - eDate.getTime()) / 60000;
+              
+              // Ignore timezone parsing artifacts
+              // If the difference is a multiple of 15 minutes (max 15 hours) and seconds match exactly, it is a timezone shift, not a user edit.
+              const roundedDiff = Math.round(diffMinutes);
+              if (roundedDiff <= 900 && roundedDiff % 15 === 0 && Math.abs(diffMinutes - roundedDiff) < 0.1 && dbDate.getSeconds() === eDate.getSeconds()) {
+                 status = 'MATCH';
+                 diffMinutes = 0;
+              }
             }
           }
 
-          if (diffMinutes > 1 || status === 'NO_EXIF') {
+          if ((diffMinutes > 1 || status === 'NO_EXIF') && status !== 'MATCH') {
             mismatches.push({
               assetId: asset.id,
               originalFileName: asset.originalFileName,
