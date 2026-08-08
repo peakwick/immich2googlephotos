@@ -31,6 +31,9 @@ COPY package*.json ./
 COPY server/package*.json ./server/
 COPY client/package*.json ./client/
 
+# Install perl for exiftool-vendored support
+RUN apk add --no-cache perl
+
 # Install production dependencies for server
 RUN npm install --only=production --prefix server
 
