@@ -61,6 +61,9 @@ router.get('/immich/assets/:id/thumbnail', async (req: Request, res: Response) =
 // EXIF Diagnostics (SSE Stream)
 // ==========================================
 router.get('/exif/diagnostics/stream', async (req: Request, res: Response) => {
+  const startPage = parseInt(req.query.startPage as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 250;
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -85,8 +88,11 @@ router.get('/exif/diagnostics/stream', async (req: Request, res: Response) => {
 
     res.write(`data: ${JSON.stringify({ type: 'progress', message: 'Scanning EXIF metadata...', checked: 0 })}\n\n`);
 
+    let totalMismatchesFound = 0;
+    let limitReached = false;
+
     // 2. Stream through all assets with Exif
-    await immichService.streamAllAssetsWithExif(async (assets, totalChecked) => {
+    await immichService.streamAllAssetsWithExif(async (assets, totalChecked, currentPage) => {
       const mismatches: any[] = [];
       const imageAssets = assets.filter(a => a.type === 'IMAGE');
 
@@ -134,12 +140,21 @@ router.get('/exif/diagnostics/stream', async (req: Request, res: Response) => {
       }
 
       if (mismatches.length > 0) {
+        totalMismatchesFound += mismatches.length;
         res.write(`data: ${JSON.stringify({ type: 'mismatch', items: mismatches })}\n\n`);
       }
       res.write(`data: ${JSON.stringify({ type: 'progress', checked: totalChecked })}\n\n`);
-    });
 
-    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      if (totalMismatchesFound >= limit) {
+        limitReached = true;
+        res.write(`data: ${JSON.stringify({ type: 'stopped', next_page: currentPage + 1 })}\n\n`);
+        return false; // Break the stream loop!
+      }
+    }, startPage);
+
+    if (!limitReached) {
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+    }
     res.end();
   } catch (error: any) {
     res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);

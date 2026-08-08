@@ -14,21 +14,26 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
 
   const [statusMessage, setStatusMessage] = useState('Initializing stream...');
   const [checkedCount, setCheckedCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
+  const [nextPage, setNextPage] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchDiagnosticsStream();
+    fetchDiagnosticsStream(1);
     return () => {
       // Clean up the stream if component unmounts
       // We will define eventSource in a ref or let it close naturally
     };
   }, []);
 
-  const fetchDiagnosticsStream = () => {
+  const fetchDiagnosticsStream = (startPage: number = 1) => {
+    if (startPage === 1) {
+      setResults([]);
+      setCheckedCount(0);
+    }
     setLoading(true);
-    setResults([]);
+    setNextPage(null);
     
-    const eventSource = new EventSource('/api/exif/diagnostics/stream');
+    // Default limit is 350 as requested by user
+    const eventSource = new EventSource(`/api/exif/diagnostics/stream?startPage=${startPage}&limit=350`);
     
     eventSource.onmessage = (event) => {
       try {
@@ -38,9 +43,17 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
           if (data.message) setStatusMessage(data.message);
           if (data.checked !== undefined) setCheckedCount(data.checked);
         } else if (data.type === 'mismatch') {
-          setResults(prev => [...prev, ...data.items]);
+          setResults(prev => {
+            // filter out duplicates just in case
+            const newItems = data.items.filter((item: any) => !prev.some(p => p.assetId === item.assetId));
+            return [...prev, ...newItems];
+          });
         } else if (data.type === 'done') {
           setLoading(false);
+          eventSource.close();
+        } else if (data.type === 'stopped') {
+          setLoading(false);
+          setNextPage(data.next_page);
           eventSource.close();
         } else if (data.type === 'error') {
           console.error('EXIF stream error:', data.error);
@@ -176,6 +189,16 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
                 ))}
               </tbody>
             </table>
+            </div>
+          )}
+          {!loading && nextPage && (
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <button
+                className="btn-primary"
+                onClick={() => fetchDiagnosticsStream(nextPage)}
+              >
+                Scan More (Limit Reached)
+              </button>
             </div>
           )}
         </div>

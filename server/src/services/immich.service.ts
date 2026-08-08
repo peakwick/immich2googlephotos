@@ -1,7 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import fs from 'fs';
-// @ts-ignore
-import * as parser from 'exif-parser';
+import exifr from 'exifr';
 import {
   ImmichServerInfo,
   ImmichUser,
@@ -182,10 +181,13 @@ export class ImmichService {
     }
   }
 
-  public async streamAllAssetsWithExif(callback: (assets: ImmichAsset[], totalChecked: number) => Promise<void>): Promise<void> {
+  public async streamAllAssetsWithExif(
+    callback: (assets: ImmichAsset[], totalChecked: number, currentPage: number) => Promise<boolean | void>,
+    startPage: number = 1
+  ): Promise<void> {
     const client = this.getClient();
     try {
-      let page = 1;
+      let page = startPage;
       const take = 250;
       let totalChecked = 0;
 
@@ -208,7 +210,10 @@ export class ImmichService {
 
         if (items.length > 0) {
           totalChecked += items.length;
-          await callback(items.map(asset => this.mapAsset(asset)), totalChecked);
+          const shouldContinue = await callback(items.map(asset => this.mapAsset(asset)), totalChecked, page);
+          if (shouldContinue === false) {
+            break; // Caller requested early exit
+          }
         }
 
         if (items.length < take) {
@@ -303,17 +308,24 @@ export class ImmichService {
         timeout: 5000,
       });
 
-      const p = parser.create(response.data);
-      const result = p.parse();
+      const result = await exifr.parse(response.data, { 
+        tiff: true,
+        xmp: true,
+        icc: false,
+        jfif: false
+      });
       
-      // exif-parser returns DateTimeOriginal as a Unix timestamp in SECONDS
-      if (result.tags && result.tags.DateTimeOriginal) {
-        return new Date(result.tags.DateTimeOriginal * 1000).toISOString();
+      // exifr returns DateTimeOriginal as a Date object or string
+      if (result && result.DateTimeOriginal) {
+        if (result.DateTimeOriginal instanceof Date) {
+          return result.DateTimeOriginal.toISOString();
+        }
+        return new Date(result.DateTimeOriginal).toISOString();
       }
       return null;
     } catch (e: any) {
       // If it's a 416 Range Not Satisfiable, the file is smaller than 64KB or not supported. 
-      // If it's a video file, exif-parser might throw an error. We just return null for now.
+      // If it's a video file, it might throw an error. We just return null for now.
       return null;
     }
   }
