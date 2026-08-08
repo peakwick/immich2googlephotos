@@ -174,30 +174,30 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
                   <tr key={r.assetId} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <td style={{ padding: '12px' }}>
                       <img 
-                        src={`/api/assets/${r.assetId}/thumbnail`} 
+                        src={`/api/immich/assets/${r.assetId}/thumbnail`} 
                         alt="thumb" 
                         style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px' }}
                       />
                     </td>
-                    <td style={{ padding: '12px' }}>
+                    <td style={{ padding: '12px', wordBreak: 'break-all' }}>
                       <div style={{ fontWeight: 600 }}>{r.originalFileName}</div>
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                         {r.albumNames.join(', ')}
                       </div>
                     </td>
-                    <td style={{ padding: '12px', color: '#2dd4bf' }}>
+                    <td style={{ padding: '12px', color: '#2dd4bf', whiteSpace: 'nowrap' }}>
                       {new Date(r.dbDate).toLocaleString()}
                     </td>
-                    <td style={{ padding: '12px', color: r.exifDate ? '#f87171' : '#fca5a5' }}>
+                    <td style={{ padding: '12px', color: r.exifDate ? '#f87171' : '#fca5a5', whiteSpace: 'nowrap' }}>
                       {r.exifDate ? new Date(r.exifDate).toLocaleString() : 'N/A'}
                     </td>
-                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
+                    <td style={{ padding: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                       {r.createDate ? new Date(r.createDate).toLocaleString() : '-'}
                     </td>
-                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
+                    <td style={{ padding: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                       {r.modifyDate ? new Date(r.modifyDate).toLocaleString() : '-'}
                     </td>
-                    <td style={{ padding: '12px', textAlign: 'right' }}>
+                    <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(250, 204, 21, 0.1)', border: '1px solid rgba(250, 204, 21, 0.3)', padding: '6px 10px', borderRadius: '6px', color: '#facc15', fontSize: '0.75rem', fontWeight: 600 }}>
                         <AlertTriangle size={14} />
                         {r.status === 'NO_EXIF' ? 'Missing EXIF' : `Mismatch (${r.diffMinutes}m)`}
