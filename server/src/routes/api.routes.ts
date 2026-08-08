@@ -86,45 +86,51 @@ router.get('/exif/diagnostics/stream', async (req: Request, res: Response) => {
     res.write(`data: ${JSON.stringify({ type: 'progress', message: 'Scanning EXIF metadata...', checked: 0 })}\n\n`);
 
     // 2. Stream through all assets with Exif
-    await immichService.streamAllAssetsWithExif((assets, totalChecked) => {
+    await immichService.streamAllAssetsWithExif(async (assets, totalChecked) => {
       const mismatches: any[] = [];
+      const imageAssets = assets.filter(a => a.type === 'IMAGE');
 
-      for (const asset of assets) {
-        if (asset.type !== 'IMAGE') continue;
-
-        const dbDate = new Date(asset.fileCreatedAt);
-        const rawExif = asset.exifInfo?.dateTimeOriginal;
+      // Process in chunks of 20 to avoid overwhelming the Immich server with Range requests
+      const chunkSize = 20;
+      for (let i = 0; i < imageAssets.length; i += chunkSize) {
+        const chunk = imageAssets.slice(i, i + chunkSize);
         
-        let status = 'MISMATCH';
-        let diffMinutes = 0;
-        let exifDate: string | null = null;
+        await Promise.all(chunk.map(async (asset) => {
+          const dbDate = new Date(asset.fileCreatedAt);
+          // Fetch the TRUE physical EXIF date directly from the file header
+          const rawExif = await immichService.getAssetPhysicalExifDate(asset.id);
+          
+          let status = 'MISMATCH';
+          let diffMinutes = 0;
+          let exifDate: string | null = null;
 
-        if (!rawExif) {
-          status = 'NO_EXIF';
-          diffMinutes = 999999;
-        } else {
-          const eDate = new Date(rawExif);
-          if (isNaN(eDate.getTime())) {
+          if (!rawExif) {
             status = 'NO_EXIF';
             diffMinutes = 999999;
           } else {
-            exifDate = eDate.toISOString();
-            diffMinutes = Math.abs(dbDate.getTime() - eDate.getTime()) / 60000;
+            const eDate = new Date(rawExif);
+            if (isNaN(eDate.getTime())) {
+              status = 'NO_EXIF';
+              diffMinutes = 999999;
+            } else {
+              exifDate = eDate.toISOString();
+              diffMinutes = Math.abs(dbDate.getTime() - eDate.getTime()) / 60000;
+            }
           }
-        }
 
-        if (diffMinutes > 1 || status === 'NO_EXIF') {
-          mismatches.push({
-            assetId: asset.id,
-            originalFileName: asset.originalFileName,
-            type: asset.type,
-            albumNames: albumMap[asset.id] || [],
-            dbDate: dbDate.toISOString(),
-            exifDate,
-            status,
-            diffMinutes: Math.round(diffMinutes),
-          });
-        }
+          if (diffMinutes > 1 || status === 'NO_EXIF') {
+            mismatches.push({
+              assetId: asset.id,
+              originalFileName: asset.originalFileName,
+              type: asset.type,
+              albumNames: albumMap[asset.id] || [],
+              dbDate: dbDate.toISOString(),
+              exifDate,
+              status,
+              diffMinutes: Math.round(diffMinutes),
+            });
+          }
+        }));
       }
 
       if (mismatches.length > 0) {

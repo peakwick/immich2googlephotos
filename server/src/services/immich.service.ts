@@ -1,5 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import fs from 'fs';
+// @ts-ignore
+import * as parser from 'exif-parser';
 import {
   ImmichServerInfo,
   ImmichUser,
@@ -180,7 +182,7 @@ export class ImmichService {
     }
   }
 
-  public async streamAllAssetsWithExif(callback: (assets: ImmichAsset[], totalChecked: number) => void): Promise<void> {
+  public async streamAllAssetsWithExif(callback: (assets: ImmichAsset[], totalChecked: number) => Promise<void>): Promise<void> {
     const client = this.getClient();
     try {
       let page = 1;
@@ -206,7 +208,7 @@ export class ImmichService {
 
         if (items.length > 0) {
           totalChecked += items.length;
-          callback(items.map(asset => this.mapAsset(asset)), totalChecked);
+          await callback(items.map(asset => this.mapAsset(asset)), totalChecked);
         }
 
         if (items.length < take) {
@@ -284,6 +286,36 @@ export class ImmichService {
       contentLength,
       mimeType,
     };
+  }
+
+  /**
+   * Fetches the first 64KB of the original asset over HTTP and parses its physical EXIF date.
+   * This bypasses Immich's database entirely to find the *true* embedded EXIF date.
+   */
+  public async getAssetPhysicalExifDate(assetId: string): Promise<string | null> {
+    const client = this.getClient();
+    try {
+      const response = await client.get(`/api/assets/${assetId}/original`, {
+        headers: {
+          'Range': 'bytes=0-65535'
+        },
+        responseType: 'arraybuffer',
+        timeout: 5000,
+      });
+
+      const p = parser.create(response.data);
+      const result = p.parse();
+      
+      // exif-parser returns DateTimeOriginal as a Unix timestamp in SECONDS
+      if (result.tags && result.tags.DateTimeOriginal) {
+        return new Date(result.tags.DateTimeOriginal * 1000).toISOString();
+      }
+      return null;
+    } catch (e: any) {
+      // If it's a 416 Range Not Satisfiable, the file is smaller than 64KB or not supported. 
+      // If it's a video file, exif-parser might throw an error. We just return null for now.
+      return null;
+    }
   }
 
   private guessMimeType(ext: string, type: 'IMAGE' | 'VIDEO'): string {
