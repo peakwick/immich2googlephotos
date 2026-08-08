@@ -80,6 +80,7 @@ export interface MigrationOptions {
   maxItemsLimit?: number;
   createAlbums: boolean;
   maxConcurrency: number;
+  fixExifDates?: boolean;
 }
 
 export interface MigrationSession {

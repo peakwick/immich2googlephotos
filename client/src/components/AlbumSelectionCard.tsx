@@ -17,7 +17,8 @@ interface AlbumSelectionCardProps {
     createAlbums: boolean,
     selectedAssetIds?: string[],
     maxItemsLimit?: number,
-    maxConcurrency?: number
+    maxConcurrency?: number,
+    fixExifDates?: boolean
   ) => void;
   disabled: boolean;
   onNextStep?: () => void;
@@ -41,6 +42,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [testLimit, setTestLimit] = useState<number>(5);
   const [createAlbums, setCreateAlbums] = useState(true);
+  const [fixExifDates, setFixExifDates] = useState(true);
   const [maxConcurrency, setMaxConcurrency] = useState<number>(5);
   const [visibleAssetCount, setVisibleAssetCount] = useState(100);
 
@@ -116,7 +118,7 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
 
   useEffect(() => {
     // Notify parent of safe initial state on mount
-    onSelectionChange('TEST_BATCH', [], createAlbums, [], 5, 5);
+    onSelectionChange('TEST_BATCH', [], createAlbums, [], 5, 5, fixExifDates);
     fetchMigratedData();
   }, []);
 
@@ -126,7 +128,8 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
     assetIds: string[],
     limit?: number,
     createAlb?: boolean,
-    concurrency?: number
+    concurrency?: number,
+    fixExif?: boolean
   ) => {
     const effectiveLimit = newMode === 'TEST_BATCH' ? (limit ?? testLimit) : undefined;
     onSelectionChange(
@@ -135,7 +138,8 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
       createAlb ?? createAlbums,
       assetIds,
       effectiveLimit,
-      concurrency ?? maxConcurrency
+      concurrency ?? maxConcurrency,
+      fixExif ?? fixExifDates
     );
   };
 
@@ -379,25 +383,48 @@ export const AlbumSelectionCard: React.FC<AlbumSelectionCardProps> = ({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <input
-            type="checkbox"
-            id="createAlbumsCheck"
-            checked={createAlbums}
-            onChange={(e) => {
-              const val = e.target.checked;
-              setCreateAlbums(val);
-              notifyChange(mode, selectedAlbumIds, selectedAssetIds, testLimit, val, maxConcurrency);
-            }}
-            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-            disabled={disabled}
-          />
-          <label htmlFor="createAlbumsCheck" style={{ fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none' }}>
-            <strong>Replicate Immich Albums to Google Photos</strong>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Automatically maps and creates matching Google Photos Albums
-            </div>
-          </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <input
+              type="checkbox"
+              id="createAlbumsCheck"
+              checked={createAlbums}
+              onChange={(e) => {
+                const val = e.target.checked;
+                setCreateAlbums(val);
+                notifyChange(mode, selectedAlbumIds, selectedAssetIds, testLimit, val, maxConcurrency, fixExifDates);
+              }}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              disabled={disabled}
+            />
+            <label htmlFor="createAlbumsCheck" style={{ fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none' }}>
+              <strong>Replicate Immich Albums to Google Photos</strong>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Automatically maps and creates matching Google Photos Albums
+              </div>
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <input
+              type="checkbox"
+              id="fixExifDatesCheck"
+              checked={fixExifDates}
+              onChange={(e) => {
+                const val = e.target.checked;
+                setFixExifDates(val);
+                notifyChange(mode, selectedAlbumIds, selectedAssetIds, testLimit, createAlbums, maxConcurrency, val);
+              }}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              disabled={disabled}
+            />
+            <label htmlFor="fixExifDatesCheck" style={{ fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none' }}>
+              <strong>Fix EXIF Dates on the fly (Slower)</strong>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Ensures every file lands perfectly in the timeline by dynamically rewriting missing/mismatched EXIF dates before upload. Slows down migration by a few seconds per file.
+              </div>
+            </label>
+          </div>
         </div>
       </div>
 

@@ -10,52 +10,11 @@ import {
 import { immichService } from './immich.service';
 import { googlePhotosService } from './googlePhotos.service';
 import { storageService } from './storage.service';
-// @ts-ignore
-import * as piexif from 'piexifjs';
-
-function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    stream.on('end', () => resolve(Buffer.concat(chunks)));
-    stream.on('error', reject);
-  });
-}
-
-function injectExifDate(jpegBuffer: Buffer, isoDateString: string): Buffer {
-  try {
-    const d = new Date(isoDateString);
-    if (isNaN(d.getTime())) return jpegBuffer;
-
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const exifDateStr = `${d.getFullYear()}:${pad(d.getMonth() + 1)}:${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
-    const binaryString = jpegBuffer.toString('binary');
-    let exifObj: any;
-    try {
-      exifObj = piexif.load(binaryString);
-    } catch {
-      exifObj = { '0th': {}, 'Exif': {}, 'GPS': {}, 'Interop': {}, '1st': {} };
-    }
-
-    exifObj['0th'] = exifObj['0th'] || {};
-    exifObj['Exif'] = exifObj['Exif'] || {};
-    exifObj['GPS'] = exifObj['GPS'] || {};
-    exifObj['Interop'] = exifObj['Interop'] || {};
-    exifObj['1st'] = exifObj['1st'] || {};
-
-    exifObj['0th'][piexif.TagNumbers.ImageIFD.DateTime] = exifDateStr;
-    exifObj['Exif'][piexif.TagNumbers.ExifIFD.DateTimeOriginal] = exifDateStr;
-    exifObj['Exif'][piexif.TagNumbers.ExifIFD.DateTimeDigitized] = exifDateStr;
-
-    const newExifBytes = piexif.dump(exifObj);
-    const newBinaryString = piexif.insert(newExifBytes, binaryString);
-    return Buffer.from(newBinaryString, 'binary');
-  } catch (err) {
-    console.warn(`Failed to inject EXIF date: ${err}`);
-    return jpegBuffer;
-  }
-}
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { pipeline } from 'stream/promises';
+import { exiftool } from 'exiftool-vendored';
 
 export class MigrationService {
   private progress: MigrationProgress;
@@ -277,7 +236,7 @@ export class MigrationService {
 
         await this.processAssetsInParallel(
           group.assets,
-          concurrency,
+          options,
           group.album.albumName,
           targetGoogleAlbumId,
           () => {
@@ -292,7 +251,7 @@ export class MigrationService {
         this.progress.currentAlbum = options.mode === 'TEST_BATCH' ? 'Test Batch' : 'Library Photos';
         await this.processAssetsInParallel(
           allLibraryAssets,
-          concurrency,
+          options,
           'Library',
           undefined,
           () => {
@@ -313,7 +272,7 @@ export class MigrationService {
         
         await this.processAssetsInParallel(
           retryQueue.map(q => q.asset),
-          1, // Single thread for retries
+          { ...options, maxConcurrency: 1 }, // Single thread for retries
           'Final Retry',
           undefined,
           undefined,
@@ -363,12 +322,13 @@ export class MigrationService {
 
   private async processAssetsInParallel(
     assets: ImmichAsset[],
-    concurrency: number,
+    options: MigrationOptions,
     albumName?: string,
     targetGoogleAlbumId?: string,
     onItemProcessed?: () => boolean,
     retryQueueContext?: Array<{ asset: ImmichAsset; albumName?: string; targetGoogleAlbumId?: string }>
   ): Promise<void> {
+    const concurrency = options.maxConcurrency || 5;
     const queue = [...assets];
     const workers: Array<Promise<void>> = [];
 
@@ -395,7 +355,7 @@ export class MigrationService {
           }
         }
 
-        await this.processSingleAsset(workerId, asset, currentAlbumName, currentTargetAlbumId, !!retryQueueContext);
+        await this.processSingleAsset(workerId, asset, options, currentAlbumName, currentTargetAlbumId, !!retryQueueContext);
       }
       
       // Cleanup worker state when done
@@ -417,6 +377,7 @@ export class MigrationService {
   private async processSingleAsset(
     workerId: number,
     asset: ImmichAsset,
+    options: MigrationOptions,
     albumName?: string,
     targetGoogleAlbumId?: string,
     isFinalRetry: boolean = false
@@ -476,30 +437,72 @@ export class MigrationService {
 
     while (retries < MAX_RETRIES) {
       try {
+        let needsExifFix = false;
+        if (options.fixExifDates) {
+          const physicalExif = await immichService.getAssetPhysicalExifDate(asset.id);
+          let exifMatches = false;
+          
+          if (physicalExif.exifDate || physicalExif.createDate || physicalExif.modifyDate) {
+            const pDateStr = physicalExif.exifDate || physicalExif.createDate || physicalExif.modifyDate;
+            if (pDateStr) {
+              const pDate = new Date(pDateStr.replace(/^(\d{4}):(\d{2}):(\d{2}) /, '$1-$2-$3T'));
+              const dbDate = new Date(asset.fileCreatedAt);
+              
+              if (!isNaN(pDate.getTime()) && !isNaN(dbDate.getTime())) {
+                const diffMinutes = Math.abs(pDate.getTime() - dbDate.getTime()) / (1000 * 60);
+                if (diffMinutes <= 2) {
+                  exifMatches = true;
+                }
+              }
+            }
+          }
+          if (!exifMatches) {
+            needsExifFix = true;
+          }
+        }
+
         updateWorkerState('DOWNLOADING', retries);
         // 1. Get readable stream of 100% original bit-for-bit file from Immich (or disk)
         const { stream, contentLength, mimeType } = await immichService.getAssetOriginalStream(asset);
 
-        updateWorkerState('UPLOADING', retries);
         let uploadToken = '';
-        if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
-          // 2. Buffer the stream and inject EXIF date for JPEGs
-          const buffer = await streamToBuffer(stream);
-          const injectedBuffer = injectExifDate(buffer, asset.fileCreatedAt);
-          uploadToken = await googlePhotosService.uploadMediaBuffer(
-            injectedBuffer,
-            asset.originalFileName,
-            mimeType
-          );
-          this.totalBytesTransferred += injectedBuffer.length;
-        } else {
-          // 2. Stream directly to Google Photos upload endpoint
-          uploadToken = await googlePhotosService.uploadMediaStream(
-            stream,
-            asset.originalFileName,
-            mimeType
-          );
-          this.totalBytesTransferred += contentLength;
+        let tempFile: string | null = null;
+
+        try {
+          if (needsExifFix) {
+             this.log('info', `Fixing missing/mismatched EXIF dates...`, asset.id, albumName);
+             const ext = asset.originalFileName.split('.').pop() || 'jpg';
+             tempFile = path.join(os.tmpdir(), `immich_mig_${asset.id}_${Date.now()}.${ext}`);
+             const writeStream = fs.createWriteStream(tempFile);
+             await pipeline(stream, writeStream);
+             
+             const d = new Date(asset.fileCreatedAt);
+             const yyyy = d.getFullYear();
+             const mm = String(d.getMonth() + 1).padStart(2, '0');
+             const dd = String(d.getDate()).padStart(2, '0');
+             const hh = String(d.getHours()).padStart(2, '0');
+             const min = String(d.getMinutes()).padStart(2, '0');
+             const ss = String(d.getSeconds()).padStart(2, '0');
+             const exifDateString = `${yyyy}:${mm}:${dd} ${hh}:${min}:${ss}`;
+
+             await exiftool.write(tempFile, { AllDates: exifDateString }, ['-overwrite_original']);
+             
+             updateWorkerState('UPLOADING', retries);
+             const readStream = fs.createReadStream(tempFile);
+             uploadToken = await googlePhotosService.uploadMediaStream(readStream, asset.originalFileName, mimeType);
+             
+             const stat = fs.statSync(tempFile);
+             this.totalBytesTransferred += stat.size;
+          } else {
+             updateWorkerState('UPLOADING', retries);
+             // Stream directly to Google Photos upload endpoint
+             uploadToken = await googlePhotosService.uploadMediaStream(stream, asset.originalFileName, mimeType);
+             this.totalBytesTransferred += contentLength;
+          }
+        } finally {
+          if (tempFile) {
+            try { fs.unlinkSync(tempFile); } catch (e) {}
+          }
         }
 
         updateWorkerState('SAVING', retries);

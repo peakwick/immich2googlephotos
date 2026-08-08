@@ -39,6 +39,7 @@ export const App: React.FC = () => {
     maxItemsLimit: 5,
     createAlbums: true,
     maxConcurrency: 5,
+    fixExifDates: true,
   });
 
   const [progress, setProgress] = useState<MigrationProgress>({
@@ -292,7 +293,8 @@ export const App: React.FC = () => {
               createAlbums: boolean,
               selectedAssetIds?: string[],
               maxItemsLimit?: number,
-              maxConcurrency?: number
+              maxConcurrency?: number,
+              fixExifDates?: boolean
             ) => {
               setMigrationOptions((prev) => ({
                 ...prev,
@@ -302,6 +304,7 @@ export const App: React.FC = () => {
                 selectedAssetIds,
                 maxItemsLimit,
                 maxConcurrency: maxConcurrency ?? prev.maxConcurrency ?? 5,
+                fixExifDates: fixExifDates ?? prev.fixExifDates ?? true,
               }));
             }}
             onNextStep={() => setActiveStep(4)}

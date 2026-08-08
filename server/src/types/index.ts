@@ -91,6 +91,7 @@ export interface MigrationOptions {
   maxItemsLimit?: number;
   createAlbums: boolean;
   maxConcurrency: number;
+  fixExifDates?: boolean;
 }
 
 export type MigrationItemState = 'QUEUED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
