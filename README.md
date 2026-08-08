@@ -150,8 +150,7 @@ Due to API constraints imposed by third-party platforms, please keep the followi
 
 ### 3. 🕒 User-Edited Dates vs. EXIF Injection
 - **Google Photos API Limitation**: When uploading files via the API, Google Photos strictly reads the creation date from the embedded EXIF binary headers in the file. If you manually changed a date inside the Immich UI, the Immich database updates, but the raw file on disk does *not* change.
-- **💡 Smart Workaround for JPEGs**: This tool features an advanced in-memory EXIF injection engine (`piexifjs`). If you edited the date of a **JPEG** photo in Immich, the engine intercepts the file buffer, dynamically injects your corrected date into the JPEG's EXIF header, and uploads it. Google Photos then correctly places it in the timeline!
-- **⚠️ Limitation for Videos & HEIC**: Unfortunately, dynamically editing EXIF/atoms for HEIC photos and MP4 videos in pure Node.js is currently not supported. Therefore, if you manually corrected dates for videos/HEIC in Immich, Google Photos may place them under today's date (or the date of the file timestamp) if their original embedded metadata is missing.
+- **💡 The Ultimate Fix (exiftool)**: Our backend now utilizes `exiftool-vendored` and `perl` to safely and reliably rewrite the `AllDates` EXIF metadata of the file before uploading it to Google Photos. This works across all major formats including **JPEG, HEIC, and MP4 videos**. If a photo is flagged with a mismatched date, you can use the built-in **EXIF Date Diagnostics** tool to scan, fix, and migrate it with the correct timestamp so Google Photos places it perfectly in your timeline!
 
 ### 4. ♾️ Bypassing Immich's 250 Asset Search Limit
 - **Technical Detail**: The Immich API (`POST /api/search/metadata`) strictly limits API queries to a maximum of 250 items per request, meaning "All Library" requests natively fail for large collections.
