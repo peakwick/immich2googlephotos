@@ -103,18 +103,18 @@ router.get('/exif/diagnostics/stream', async (req: Request, res: Response) => {
         
         await Promise.all(chunk.map(async (asset) => {
           const dbDate = new Date(asset.fileCreatedAt);
-          // Fetch the TRUE physical EXIF date directly from the file header
+          // Fetch the TRUE physical EXIF dates directly from the file header
           const rawExif = await immichService.getAssetPhysicalExifDate(asset.id);
           
           let status = 'MISMATCH';
           let diffMinutes = 0;
           let exifDate: string | null = null;
 
-          if (!rawExif) {
+          if (!rawExif || !rawExif.dateTimeOriginal) {
             status = 'NO_EXIF';
             diffMinutes = 999999;
           } else {
-            const eDate = new Date(rawExif);
+            const eDate = new Date(rawExif.dateTimeOriginal);
             if (isNaN(eDate.getTime())) {
               status = 'NO_EXIF';
               diffMinutes = 999999;
@@ -140,6 +140,8 @@ router.get('/exif/diagnostics/stream', async (req: Request, res: Response) => {
               albumNames: albumMap[asset.id] || [],
               dbDate: dbDate.toISOString(),
               exifDate,
+              createDate: rawExif?.createDate || null,
+              modifyDate: rawExif?.modifyDate || null,
               status,
               diffMinutes: Math.round(diffMinutes),
             });

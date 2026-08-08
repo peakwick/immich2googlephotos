@@ -107,6 +107,8 @@ export interface ExifDiagnosticResult {
   albumNames: string[];
   dbDate: string;
   exifDate: string | null;
-  status: 'NO_EXIF' | 'MISMATCH';
+  createDate: string | null;
+  modifyDate: string | null;
+  status: 'NO_EXIF' | 'MISMATCH' | 'MATCH';
   diffMinutes: number;
 }

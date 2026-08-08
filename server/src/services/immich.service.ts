@@ -294,10 +294,13 @@ export class ImmichService {
   }
 
   /**
-   * Fetches the first 64KB of the original asset over HTTP and parses its physical EXIF date.
-   * This bypasses Immich's database entirely to find the *true* embedded EXIF date.
+   * Fetches the first 64KB of the original asset over HTTP and parses its physical EXIF dates.
    */
-  public async getAssetPhysicalExifDate(assetId: string): Promise<string | null> {
+  public async getAssetPhysicalExifDate(assetId: string): Promise<{
+    dateTimeOriginal?: string | null;
+    createDate?: string | null;
+    modifyDate?: string | null;
+  } | null> {
     const client = this.getClient();
     try {
       const response = await client.get(`/api/assets/${assetId}/original`, {
@@ -315,14 +318,27 @@ export class ImmichService {
         jfif: false
       });
       
-      // exifr returns DateTimeOriginal as a Date object or string
-      if (result && result.DateTimeOriginal) {
-        if (result.DateTimeOriginal instanceof Date) {
-          return result.DateTimeOriginal.toISOString();
+      const dates: any = {};
+      
+      if (result) {
+        if (result.DateTimeOriginal) {
+          dates.dateTimeOriginal = result.DateTimeOriginal instanceof Date 
+            ? result.DateTimeOriginal.toISOString() 
+            : new Date(result.DateTimeOriginal).toISOString();
         }
-        return new Date(result.DateTimeOriginal).toISOString();
+        if (result.CreateDate) {
+          dates.createDate = result.CreateDate instanceof Date 
+            ? result.CreateDate.toISOString() 
+            : new Date(result.CreateDate).toISOString();
+        }
+        if (result.ModifyDate) {
+          dates.modifyDate = result.ModifyDate instanceof Date 
+            ? result.ModifyDate.toISOString() 
+            : new Date(result.ModifyDate).toISOString();
+        }
       }
-      return null;
+      
+      return Object.keys(dates).length > 0 ? dates : null;
     } catch (e: any) {
       // If it's a 416 Range Not Satisfiable, the file is smaller than 64KB or not supported. 
       // If it's a video file, it might throw an error. We just return null for now.
