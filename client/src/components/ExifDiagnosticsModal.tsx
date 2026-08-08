@@ -136,21 +136,27 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
 
         {/* Content */}
         <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
-          {loading ? (
+          {loading && results.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
               <div className="animate-spin" style={{ marginBottom: '16px' }}><Search size={32} /></div>
               <div style={{ fontWeight: 600, color: '#fff', marginBottom: '8px' }}>{statusMessage}</div>
               {checkedCount > 0 && <div>Checked {checkedCount} items... Found {results.length} issues so far.</div>}
             </div>
-          ) : results.length === 0 ? (
+          ) : results.length === 0 && !loading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: '#34d399' }}>
-              <h3 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>Perfect Library! 🎉</h3>
+              <h3 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>Perfect Library! ✨</h3>
               <p>No date mismatches found. All files have original EXIF dates matching the database.</p>
             </div>
           ) : filteredResults.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No matches for your search.</div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: 'auto', position: 'relative' }}>
+              {loading && (
+                <div style={{ position: 'sticky', top: 0, left: 0, right: 0, background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', zIndex: 10, backdropFilter: 'blur(5px)', borderRadius: '6px', marginBottom: '16px', color: '#60a5fa' }}>
+                  <div className="animate-spin" style={{ width: '16px', height: '16px', border: '2px solid #60a5fa', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
+                  <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Scanning... Checked {checkedCount} items so far.</span>
+                </div>
+              )}
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
