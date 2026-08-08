@@ -18,7 +18,7 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
   const [eventSourceRef, setEventSourceRef] = useState<EventSource | null>(null);
   
   // Track migrating state for individual rows
-  const [migratingIds, setMigratingIds] = useState<Record<string, 'loading' | 'success' | 'error'>>({});
+  const [migratingIds, setMigratingIds] = useState<Record<string, { state: 'loading' | 'success' | 'error', message?: string }>>({});
 
   useEffect(() => {
     fetchDiagnosticsStream(1);
@@ -90,18 +90,33 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
   };
 
   const handleFixAndMigrate = async (assetId: string, dbDate: string) => {
-    setMigratingIds(prev => ({ ...prev, [assetId]: 'loading' }));
+    setMigratingIds(prev => ({ ...prev, [assetId]: { state: 'loading' } }));
     try {
       const response = await axios.post('/api/exif/fix-and-migrate', { assetId, dbDate });
       if (response.data.success) {
-        setMigratingIds(prev => ({ ...prev, [assetId]: 'success' }));
+        setMigratingIds(prev => ({ ...prev, [assetId]: { state: 'success' } }));
       } else {
         throw new Error('Upload failed');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Migration failed:', e);
-      setMigratingIds(prev => ({ ...prev, [assetId]: 'error' }));
+      setMigratingIds(prev => ({ ...prev, [assetId]: { state: 'error', message: e.response?.data?.error || e.message } }));
     }
+  };
+
+  const formatDateMultiline = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    const str = new Date(dateString).toLocaleString();
+    const parts = str.split(', ');
+    if (parts.length === 2) {
+      return (
+        <>
+          <div>{parts[0]}</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>{parts[1]}</div>
+        </>
+      );
+    }
+    return str;
   };
 
   const filteredResults = results.filter(r => 
@@ -207,16 +222,16 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
                         </div>
                       </td>
                       <td style={{ padding: '12px', color: '#2dd4bf', whiteSpace: 'nowrap' }}>
-                        {new Date(r.dbDate).toLocaleString()}
+                        {formatDateMultiline(r.dbDate)}
                       </td>
                       <td style={{ padding: '12px', color: r.exifDate ? '#f87171' : '#fca5a5', whiteSpace: 'nowrap' }}>
-                        {r.exifDate ? new Date(r.exifDate).toLocaleString() : 'N/A'}
+                        {formatDateMultiline(r.exifDate)}
                       </td>
                       <td style={{ padding: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {r.createDate ? new Date(r.createDate).toLocaleString() : '-'}
+                        {r.createDate ? formatDateMultiline(r.createDate) : '-'}
                       </td>
                       <td style={{ padding: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {r.modifyDate ? new Date(r.modifyDate).toLocaleString() : '-'}
+                        {r.modifyDate ? formatDateMultiline(r.modifyDate) : '-'}
                       </td>
                       <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(250, 204, 21, 0.1)', border: '1px solid rgba(250, 204, 21, 0.3)', padding: '6px 10px', borderRadius: '6px', color: '#facc15', fontSize: '0.75rem', fontWeight: 600 }}>
@@ -225,18 +240,23 @@ export const ExifDiagnosticsModal: React.FC<ExifDiagnosticsModalProps> = ({ onCl
                         </div>
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        {mState === 'success' ? (
+                        {mState?.state === 'success' ? (
                           <div style={{ color: '#34d399', fontWeight: 600, fontSize: '0.85rem' }}>✓ Migrated</div>
-                        ) : mState === 'error' ? (
-                          <div style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.85rem' }}>✗ Failed</div>
+                        ) : mState?.state === 'error' ? (
+                          <div style={{ color: '#ef4444', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ fontWeight: 600 }}>✗ Failed</div>
+                            <div style={{ fontSize: '0.7rem', maxWidth: '120px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.2, opacity: 0.8 }}>
+                              {mState.message}
+                            </div>
+                          </div>
                         ) : (
                           <button 
                             className="btn-primary" 
                             style={{ padding: '6px 12px', fontSize: '0.8rem', minWidth: '100px' }}
                             onClick={() => handleFixAndMigrate(r.assetId, r.dbDate)}
-                            disabled={mState === 'loading'}
+                            disabled={mState?.state === 'loading'}
                           >
-                            {mState === 'loading' ? 'Fixing...' : 'Fix & Migrate'}
+                            {mState?.state === 'loading' ? 'Fixing...' : 'Fix & Migrate'}
                           </button>
                         )}
                       </td>
