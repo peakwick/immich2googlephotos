@@ -240,6 +240,17 @@ export class ImmichService {
     };
   }
 
+  public async getAssetById(assetId: string): Promise<ImmichAsset> {
+    const client = this.getClient();
+    try {
+      const response = await client.get(`/api/assets/${assetId}`);
+      return this.mapAsset(response.data);
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to fetch asset info';
+      throw new Error(`Immich getAssetById error: ${msg}`);
+    }
+  }
+
   public async getAssetThumbnailStream(assetId: string): Promise<{ stream: NodeJS.ReadableStream; mimeType: string }> {
     const client = this.getClient();
     const response = await client.get(`/api/assets/${assetId}/thumbnail`, {

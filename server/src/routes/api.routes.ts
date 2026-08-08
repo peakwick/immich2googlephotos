@@ -3,6 +3,11 @@ import { immichService } from '../services/immich.service';
 import { googlePhotosService } from '../services/googlePhotos.service';
 import { migrationService } from '../services/migration.service';
 import { storageService } from '../services/storage.service';
+import { exiftool } from 'exiftool-vendored';
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { pipeline } from 'stream/promises';
 
 const router = Router();
 
@@ -169,6 +174,65 @@ router.get('/exif/diagnostics/stream', async (req: Request, res: Response) => {
   } catch (error: any) {
     res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
     res.end();
+  }
+});
+
+router.post('/exif/fix-and-migrate', async (req: Request, res: Response) => {
+  const { assetId, dbDate } = req.body;
+  if (!assetId || !dbDate) {
+    return res.status(400).json({ error: 'Missing assetId or dbDate' });
+  }
+
+  let tempFile: string | null = null;
+  try {
+    const asset = await immichService.getAssetById(assetId);
+    
+    // 1. Download original stream
+    const { stream, mimeType } = await immichService.getAssetOriginalStream(asset);
+    
+    // 2. Save to temp file
+    const ext = asset.originalFileName.split('.').pop() || 'jpg';
+    tempFile = path.join(os.tmpdir(), `immich_exif_fix_${asset.id}.${ext}`);
+    
+    const writeStream = fs.createWriteStream(tempFile);
+    await pipeline(stream, writeStream);
+    
+    // 3. Apply EXIF fix using exiftool-vendored
+    // dbDate is in ISO UTC format (e.g., 2026-08-06T12:15:45.000Z).
+    // We format it to local EXIF time: YYYY:MM:DD HH:MM:SS based on the server's timezone
+    const d = new Date(dbDate);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    const exifDateString = `${yyyy}:${mm}:${dd} ${hh}:${min}:${ss}`;
+
+    await exiftool.write(tempFile, { AllDates: exifDateString }, ['-overwrite_original']);
+    
+    // 4. Upload to Google Photos
+    const readStream = fs.createReadStream(tempFile);
+    const uploadToken = await googlePhotosService.uploadMediaStream(readStream, asset.originalFileName, mimeType);
+    
+    // 5. Create Media Item
+    const results = await googlePhotosService.batchCreateMediaItems(
+      [{ uploadToken, filename: asset.originalFileName }]
+    );
+    
+    if (results && results.length > 0 && results[0].id) {
+      res.json({ success: true, googleMediaItemId: results[0].id });
+    } else {
+      throw new Error('Google Photos creation failed or returned empty results.');
+    }
+
+  } catch (error: any) {
+    console.error('EXIF Fix & Migrate error:', error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (tempFile) {
+      try { fs.unlinkSync(tempFile); } catch (e) {}
+    }
   }
 });
 
